@@ -1,0 +1,16 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://Player.tscn" type="PackedScene" id=2]
+[ext_resource path="res://FPS.tscn" type="PackedScene" id=3]
+[ext_resource path="res://Scripts/World.cs" type="Script" id=4]
+
+[node name="World" type="Spatial"]
+script = ExtResource( 4 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.944606, 0.328207, 0, -0.328207, 0.944606, 0, 0, 0 )
+
+[node name="FPSLabel" parent="." instance=ExtResource( 3 )]
+
+[node name="Player" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25, 0 )
