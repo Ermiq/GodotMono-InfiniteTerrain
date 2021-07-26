@@ -5,35 +5,29 @@ using System.Collections.Generic;
 public class Chunk : Spatial
 {
 	public bool should_be_removed { get; private set; }
-	public int x { get; private set; }
-	public int z { get; private set; }
+	public int x;
+	public int z;
+	public int detail { get; set; }
 
 	MeshInstance mesh_instance;
 	OpenSimplexNoise noise;
-	int size;
+	float size;
 	int quadsInRow;
 	Vector3[] vertices;
 	bool can_be_removed = false;
 
-	Thread thread;
-
-	public Chunk(OpenSimplexNoise noise, int x, int z, int size, int detail)
+	public Chunk(OpenSimplexNoise noise, int x, int z, float size)
 	{
 		this.noise = noise;
 		this.x = x;
 		this.z = z;
 		this.size = size;
-		
-		quadsInRow = (int)Mathf.Pow(2, detail);
-		//thread = new Thread();
 	}
 
-	public override void _Ready()
+	public void SetDetail(int detail)
 	{
-		base._Ready();
-
-		//thread.Start(this, "Generate");
-		Generate();
+		this.detail = detail;
+		quadsInRow = (int)Mathf.Pow(2, detail);
 	}
 
 	public void SetToRemove(bool value)
@@ -43,7 +37,7 @@ public class Chunk : Spatial
 	}
 
 	// Create a mesh from quads. Each quad is made of 4 triangles (as splitted by 2 diagonal lines).
-	void Generate(object[] arr = null)
+	public void Generate(object[] arr = null)
 	{
 		int verticesAmount = (int)Mathf.Pow(quadsInRow, 2) * 12; // 12 vertices in each quad
 		vertices = new Vector3[verticesAmount];
@@ -112,25 +106,20 @@ public class Chunk : Spatial
 		surface_tool.GenerateNormals();
 
 		// Generate a mesh instance data:
-		mesh_instance = new MeshInstance();
+		if (mesh_instance == null)
+		{
+			mesh_instance = new MeshInstance();
+			AddChild(mesh_instance);
+		}
 		mesh_instance.Mesh = surface_tool.Commit();
 		mesh_instance.CreateTrimeshCollision();
 		mesh_instance.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
-		AddChild(mesh_instance);
 
-		// When all done, call the finish method in the main thread:
-		//CallDeferred("InstantiateMesh");
-		InstantiateMesh();
+		can_be_removed = true;
 	}
 
 	void ApplyYNoise(ref Vector3 vertex)
 	{
 		vertex.y = noise.GetNoise2d(vertex.x + x * size, vertex.z + z * size) * 80f;
-	}
-
-	void InstantiateMesh()
-	{
-		//thread.WaitToFinish();
-		can_be_removed = true;
 	}
 }
