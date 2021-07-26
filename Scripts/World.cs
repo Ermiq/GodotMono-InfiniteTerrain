@@ -7,7 +7,7 @@ public class World : Spatial
 {
 	float chunk_size = 100.0f;
 	int chunk_detail = 6;
-	int chunk_amount = 4;
+	int chunk_amount = 5;
 	int detailDegradeCoef = 1;
 
 	OpenSimplexNoise noise;
@@ -29,6 +29,16 @@ public class World : Spatial
 		noise.Period = 160;
 
 		thread = new Thread();
+
+		for (int x = -chunk_amount; x <= chunk_amount; x++)
+		{
+			for (int z = -chunk_amount; z <= chunk_amount; z++)
+			{
+				Chunk chunk = new Chunk(noise, x, z, chunk_size);
+				AddChild(chunk);
+				chunks[x + "," + z] = chunk;
+			}
+		}
 	}
 
 	public override void _Process(float delta)
@@ -36,15 +46,14 @@ public class World : Spatial
 		base._Process(delta);
 
 		UpdatePlayerPosIndex();
-		update_chunks();
-		clean_up_chunks();
+		UpdateChunks();
 	}
 
 	void UpdatePlayerPosIndex()
 	{
 		Vector3 player_translation = (GetNode("Player") as Spatial).Translation;
-		playerPosIndexX = (int)(player_translation.x / chunk_size);
-		playerPosIndexZ = (int)(player_translation.z / chunk_size);
+		playerPosIndexX = (int)player_translation.x / (int)chunk_size;
+		playerPosIndexZ = (int)player_translation.z / (int)chunk_size;
 	}
 
 	int GetDetailForIndex(int x, int z)
@@ -73,16 +82,22 @@ public class World : Spatial
 		int detail = GetDetailForIndex(x, z);
 		
 		Chunk chunk;
-		chunks.TryGetValue(x + "," + z, out chunk);
+		chunks.TryGetValue(key, out chunk);
 		if (chunk != null && chunk.detail == detail)
+		{
 			return;
+		}
 
 		if (!thread.IsActive())
 		{
 			if (chunk == null)
 			{
-				chunk = new Chunk(noise, x, z, chunk_size);
+				chunk = GetFreeChunk();
+				chunk.x = x;
+				chunk.z = z;
 			}
+			chunk.Translation = new Vector3(chunk.x * chunk_size, 0, chunk.z * chunk_size);
+
 			thread.Start(this, "LoadChunk", new object[2] { thread, chunk });
 			chunks_in_process.Add(key);
 		}
@@ -97,23 +112,29 @@ public class World : Spatial
 		chunk.SetDetail(detail);
 		chunk.Generate();
 
-		CallDeferred("finish", chunk, thread);
+		CallDeferred("FinishThread", chunk, thread);
 	}
 
-	void finish(Chunk chunk, Thread thread)
+	void FinishThread(Chunk chunk, Thread thread)
 	{
 		thread.WaitToFinish();
-
-		AddChild(chunk);
-		chunk.Translation = new Vector3(chunk.x * chunk_size, 0, chunk.z * chunk_size);
 
 		string key = chunk.x + "," + chunk.z;
 		chunks[key] = chunk;
 		chunks_in_process.Remove(key);
 	}
 
-	void update_chunks()
+	void UpdateChunks()
 	{
+		foreach (string key in chunks.Keys)
+		{
+			Chunk chunk = chunks[key];
+			if (GetIndexOffset(chunk.x, chunk.z) >= chunk_amount)
+			{
+				chunk.isBusy = false;
+			}
+		}
+
 		for (int x = (playerPosIndexX - chunk_amount); x <= (playerPosIndexX + chunk_amount); x++)
 		{
 			for (int z = (playerPosIndexZ - chunk_amount); z <= (playerPosIndexZ + chunk_amount); z++)
@@ -121,28 +142,18 @@ public class World : Spatial
 				ProcessCell(x, z);
 			}
 		}
-
-		foreach (string key in chunks.Keys)
-		{
-			Chunk chunk = chunks[key];
-			int detail = GetDetailForIndex(chunk.x, chunk.z);
-			if (detail <= 0)
-				chunk.SetToRemove(true);
-			else if (GetIndexOffset(chunk.x, chunk.z) > chunk_amount)
-				chunk.SetToRemove(true);
-		}
 	}
 
-	void clean_up_chunks()
+	Chunk GetFreeChunk()
 	{
 		foreach (Chunk chunk in chunks.Values)
 		{
-			if (chunk.should_be_removed)
+			if (!chunk.isBusy)
 			{
-				chunk.QueueFree();
-				Chunk dummy;
-				chunks.TryRemove(chunk.x + "," + chunk.z, out dummy);
+				chunk.isBusy = true;
+				return chunk;
 			}
 		}
+		return null;
 	}
 }

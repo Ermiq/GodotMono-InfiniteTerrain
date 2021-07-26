@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 public class Chunk : Spatial
 {
-	public bool should_be_removed { get; private set; }
+	public bool isBusy = false;
 	public int x;
 	public int z;
 	public int detail { get; set; }
@@ -14,7 +14,6 @@ public class Chunk : Spatial
 	float size;
 	int quadsInRow;
 	Vector3[] vertices;
-	bool can_be_removed = false;
 
 	public Chunk(OpenSimplexNoise noise, int x, int z, float size)
 	{
@@ -22,18 +21,16 @@ public class Chunk : Spatial
 		this.x = x;
 		this.z = z;
 		this.size = size;
+
+		mesh_instance = new MeshInstance();
+		mesh_instance.Name = "mesh";
+		AddChild(mesh_instance);
 	}
 
 	public void SetDetail(int detail)
 	{
 		this.detail = detail;
 		quadsInRow = (int)Mathf.Pow(2, detail);
-	}
-
-	public void SetToRemove(bool value)
-	{
-		if (can_be_removed)
-			should_be_removed = value;
 	}
 
 	// Create a mesh from quads. Each quad is made of 4 triangles (as splitted by 2 diagonal lines).
@@ -105,17 +102,14 @@ public class Chunk : Spatial
 		surface_tool.SetMaterial(ResourceLoader.Load("res://Terrain.material") as Material);
 		surface_tool.GenerateNormals();
 
+		RemoveChild(mesh_instance);
+		mesh_instance = new MeshInstance();
+		AddChild(mesh_instance);
+
 		// Generate a mesh instance data:
-		if (mesh_instance == null)
-		{
-			mesh_instance = new MeshInstance();
-			AddChild(mesh_instance);
-		}
 		mesh_instance.Mesh = surface_tool.Commit();
 		mesh_instance.CreateTrimeshCollision();
 		mesh_instance.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
-
-		can_be_removed = true;
 	}
 
 	void ApplyYNoise(ref Vector3 vertex)
