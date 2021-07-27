@@ -10,8 +10,8 @@ public class World : Spatial
 	int chunk_amount = 5;
 	int detailDegradeCoef = 1;
 
-	PackedScene PlayerScene = ResourceLoader.Load("res://Player.tscn") as PackedScene;
-	PackedScene FlyCamScene = ResourceLoader.Load("res://FlyCam.tscn") as PackedScene;
+	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
+	PackedScene FlyCamScene = ResourceLoader.Load("res://Scenes/FlyCam.tscn") as PackedScene;
 
 	Spatial Player;
 	Spatial FlyCam;
