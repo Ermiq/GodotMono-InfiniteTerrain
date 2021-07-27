@@ -10,10 +10,15 @@ public class World : Spatial
 	int chunk_amount = 5;
 	int detailDegradeCoef = 1;
 
-	OpenSimplexNoise noise;
+	PackedScene PlayerScene = ResourceLoader.Load("res://Player.tscn") as PackedScene;
+	PackedScene FlyCamScene = ResourceLoader.Load("res://FlyCam.tscn") as PackedScene;
 
-	ConcurrentDictionary<string, Chunk> chunks = new ConcurrentDictionary<string, Chunk>();
-	List<string> chunks_in_process = new List<string>();
+	Spatial Player;
+	Spatial FlyCam;
+
+	OpenSimplexNoise noise;
+	List<Chunk> chunks = new List<Chunk>();
+	//List<string> chunks_in_process = new List<string>();
 
 	int playerPosIndexX, playerPosIndexZ;
 
@@ -36,14 +41,35 @@ public class World : Spatial
 			{
 				Chunk chunk = new Chunk(noise, x, z, chunk_size);
 				AddChild(chunk);
-				chunks[x + "," + z] = chunk;
+				chunks.Add(chunk);
 			}
 		}
+
+		Player = GetNode("Player") as Spatial;
+		//FlyCam = GetNode("FlyCam") as Spatial;
 	}
 
 	public override void _Process(float delta)
 	{
 		base._Process(delta);
+
+		if (Input.IsActionJustPressed("jump"))
+		{
+			if (Player != null)
+			{
+				RemoveChild(Player);
+				Player = null;
+				FlyCam = FlyCamScene.Instance() as Spatial;
+				AddChild(FlyCam);
+			}
+			else
+			{
+				RemoveChild(FlyCam);
+				FlyCam = null;
+				Player = PlayerScene.Instance() as Spatial;
+				AddChild(Player);
+			}
+		}
 
 		UpdatePlayerPosIndex();
 		UpdateChunks();
@@ -51,7 +77,11 @@ public class World : Spatial
 
 	void UpdatePlayerPosIndex()
 	{
-		Vector3 player_translation = (GetNode("Player") as Spatial).Translation;
+		if (Player == null)
+		{
+			return;
+		}
+		Vector3 player_translation = Player.Translation;
 		playerPosIndexX = (int)player_translation.x / (int)chunk_size;
 		playerPosIndexZ = (int)player_translation.z / (int)chunk_size;
 	}
@@ -73,16 +103,14 @@ public class World : Spatial
 	void ProcessCell(int x, int z)
 	{
 		string key = x + "," + z;
-
-		if (chunks_in_process.Contains(key))
-		{
-			return;
-		}
+		//if (chunks_in_process.Contains(key))
+		//{
+		//	return;
+		//}
 
 		int detail = GetDetailForIndex(x, z);
 		
-		Chunk chunk;
-		chunks.TryGetValue(key, out chunk);
+		Chunk chunk = chunks.Find(c => c.x == x && c.z == z);
 		if (chunk != null && chunk.detail == detail)
 		{
 			return;
@@ -98,38 +126,41 @@ public class World : Spatial
 			}
 			chunk.Translation = new Vector3(chunk.x * chunk_size, 0, chunk.z * chunk_size);
 
-			thread.Start(this, "LoadChunk", new object[2] { thread, chunk });
-			chunks_in_process.Add(key);
+			thread.Start(this, "LoadChunk", new object[4] { thread, chunk, x, z });
+			//LoadChunk(new object[4] { null, chunk, x, z });
+			//chunks_in_process.Add(key);
 		}
 	}
 
 	void LoadChunk(object[] arr)
 	{
-		Thread thread = arr[0] as Thread;
+		//Thread thread = arr[0] as Thread;
 		Chunk chunk = arr[1] as Chunk;
-		
-		int detail = GetDetailForIndex(chunk.x, chunk.z);
+		int x = (int)arr[2];
+		int z = (int)arr[3];
+
+		int detail = GetDetailForIndex(x, z);
+
 		chunk.SetDetail(detail);
 		chunk.Generate();
 
-		CallDeferred("FinishThread", chunk, thread);
+		CallDeferred("FinishThread", x, z, thread);
+		//FinishThread(x, z, null);
 	}
 
-	void FinishThread(Chunk chunk, Thread thread)
+	void FinishThread(int x, int z, Thread thread)
 	{
 		thread.WaitToFinish();
 
-		string key = chunk.x + "," + chunk.z;
-		chunks[key] = chunk;
-		chunks_in_process.Remove(key);
+		string key = x + "," + z;
+		//chunks_in_process.Remove(key);
 	}
 
 	void UpdateChunks()
 	{
-		foreach (string key in chunks.Keys)
+		foreach (Chunk chunk in chunks)
 		{
-			Chunk chunk = chunks[key];
-			if (GetIndexOffset(chunk.x, chunk.z) >= chunk_amount)
+			if (GetIndexOffset(chunk.x, chunk.z) > chunk_amount)
 			{
 				chunk.isBusy = false;
 			}
@@ -146,7 +177,7 @@ public class World : Spatial
 
 	Chunk GetFreeChunk()
 	{
-		foreach (Chunk chunk in chunks.Values)
+		foreach (Chunk chunk in chunks)
 		{
 			if (!chunk.isBusy)
 			{

@@ -3,7 +3,7 @@ extends Camera
 const MOUSE_SENSITIVITY = 0.002
 
 # The camera movement speed (tweakable using the mouse wheel)
-var move_speed := 0.5
+var move_speed := 1.0
 
 # Stores where the camera is wanting to go (based on pressed keys and speed modifier)
 var motion := Vector3()
@@ -26,7 +26,7 @@ func _input(event: InputEvent) -> void:
 		rotation.x = clamp(rotation.x - event.relative.y * MOUSE_SENSITIVITY, deg2rad(-90), deg2rad(90))
 
 	if event.is_action_pressed("scroll_f"):
-		move_speed = min(1.5, move_speed + 0.1)
+		move_speed = min(3.0, move_speed + 0.1)
 
 	if event.is_action_pressed("scroll_b"):
 		move_speed = max(0.1, move_speed - 0.1)

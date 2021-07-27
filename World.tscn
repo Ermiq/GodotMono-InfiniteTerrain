@@ -13,4 +13,3 @@ transform = Transform( 1, 0, 0, 0, 0.944606, 0.328207, 0, -0.328207, 0.944606, 0
 [node name="FPSLabel" parent="." instance=ExtResource( 3 )]
 
 [node name="Player" parent="." instance=ExtResource( 2 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25, 0 )

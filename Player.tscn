@@ -10,6 +10,7 @@
 material = SubResource( 2 )
 
 [node name="Player" type="KinematicBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 100, 0 )
 script = ExtResource( 1 )
 
 [node name="CamRotator" type="Spatial" parent="."]
