@@ -1,6 +1,8 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 public class Chunk : Spatial
 {
@@ -10,21 +12,22 @@ public class Chunk : Spatial
 	public int detail { get; set; }
 
 	MeshInstance mesh_instance;
+	SurfaceTool surfaceTool;
 	OpenSimplexNoise noise;
+	Material material;
 	float size;
 	int quadsInRow;
 	Vector3[] vertices;
 
-	public Chunk(OpenSimplexNoise noise, int x, int z, float size)
+	Task task;
+	
+	public Chunk(OpenSimplexNoise noise, Material material, int x, int z, float size)
 	{
 		this.noise = noise;
+		this.material = material;
 		this.x = x;
 		this.z = z;
 		this.size = size;
-
-		mesh_instance = new MeshInstance();
-		mesh_instance.Name = "mesh";
-		AddChild(mesh_instance);
 	}
 
 	public void SetDetail(int detail)
@@ -34,14 +37,24 @@ public class Chunk : Spatial
 	}
 
 	// Create a mesh from quads. Each quad is made of 4 triangles (as splitted by 2 diagonal lines).
-	public void Generate(object[] arr = null)
+	public void GenerateAsync()
+	{
+		task = Task.Run(StartGeneration);
+	}
+
+	public void Generate()
+	{
+		StartGeneration();
+	}
+
+	void StartGeneration()
 	{
 		int verticesAmount = (int)Mathf.Pow(quadsInRow, 2) * 12; // 12 vertices in each quad
 		vertices = new Vector3[verticesAmount];
 		int vertexIndex = 0;
 
 		// Calculate a half size of a quad edge.
-		float quadHalfSize = (float)size / (float)quadsInRow * 0.5f;
+		float quadHalfSize = (float)size / (float)quadsInRow * 0.499f;
 		// Get the starting position from which the quads generation will begin.
 		// This position is the center of the first (left-top) quad.
 		Vector3 center, bottomLeft, topLeft, topRight, bottomRight;
@@ -91,25 +104,34 @@ public class Chunk : Spatial
 			}
 		}
 
-		var surface_tool = new SurfaceTool();
-		surface_tool.Begin(Mesh.PrimitiveType.Triangles);
+		surfaceTool = new SurfaceTool();
+		surfaceTool.Begin(Mesh.PrimitiveType.Triangles);
 
 		// Send the vertices to the SurfaceTool:
 		for (int v = 0; v < vertices.Length; v++)
 		{
-			surface_tool.AddVertex(vertices[v]);
+			surfaceTool.AddVertex(vertices[v]);
 		}
-		surface_tool.SetMaterial(ResourceLoader.Load("res://Terrain.material") as Material);
-		surface_tool.GenerateNormals();
+		surfaceTool.SetMaterial(material);
+		surfaceTool.GenerateNormals();
 
-		RemoveChild(mesh_instance);
-		mesh_instance = new MeshInstance();
-		AddChild(mesh_instance);
+		ApplyToMesh();
+	}
 
+	MeshInstance ApplyToMesh()
+	{
+		MeshInstance newMesh = new MeshInstance();
 		// Generate a mesh instance data:
-		mesh_instance.Mesh = surface_tool.Commit();
-		mesh_instance.CreateTrimeshCollision();
-		mesh_instance.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
+		newMesh.Mesh = surfaceTool.Commit();
+		newMesh.CreateTrimeshCollision();
+		newMesh.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
+
+		if (mesh_instance != null)
+			RemoveChild(mesh_instance);
+		AddChild(newMesh);
+		mesh_instance = newMesh;
+
+		return newMesh;
 	}
 
 	void ApplyYNoise(ref Vector3 vertex)
