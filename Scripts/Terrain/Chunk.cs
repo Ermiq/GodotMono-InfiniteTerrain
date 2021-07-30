@@ -18,9 +18,10 @@ public class Chunk : Spatial
 	float size;
 	int quadsInRow;
 	Vector3[] vertices;
+	int[] neighboursDetail = new int[4];
 
 	Task task;
-	
+
 	public Chunk(OpenSimplexNoise noise, Material material, int x, int z, float size)
 	{
 		this.noise = noise;
@@ -30,10 +31,11 @@ public class Chunk : Spatial
 		this.size = size;
 	}
 
-	public void SetDetail(int detail)
+	public void SetDetail(int detail, int[] neighboursDetail)
 	{
 		this.detail = detail;
 		quadsInRow = (int)Mathf.Pow(2, detail);
+		this.neighboursDetail = neighboursDetail;
 	}
 
 	// Create a mesh from quads. Each quad is made of 4 triangles (as splitted by 2 diagonal lines).
@@ -49,6 +51,13 @@ public class Chunk : Spatial
 
 	void StartGeneration()
 	{
+		int seamSide = -1;
+		for (int i = 0; i < 4; i++)
+		{
+			if (neighboursDetail[i] < detail)
+				seamSide = i;
+		}
+
 		int verticesAmount = (int)Mathf.Pow(quadsInRow, 2) * 12; // 12 vertices in each quad
 		vertices = new Vector3[verticesAmount];
 		int vertexIndex = 0;
@@ -83,24 +92,7 @@ public class Chunk : Spatial
 				ApplyYNoise(ref topRight);
 				ApplyYNoise(ref bottomRight);
 
-				// Add triangles (as a set of 3 vertices) to the array:
-				// 1. Left bottom triangle:
-				vertices[vertexIndex] = center;
-				vertices[vertexIndex + 1] = bottomLeft;
-				vertices[vertexIndex + 2] = topLeft;
-				// 2. Left top triangle:
-				vertices[vertexIndex + 3] = center;
-				vertices[vertexIndex + 4] = topLeft;
-				vertices[vertexIndex + 5] = topRight;
-				// 3. Right top triangle:
-				vertices[vertexIndex + 6] = center;
-				vertices[vertexIndex + 7] = topRight;
-				vertices[vertexIndex + 8] = bottomRight;
-				// 4. Right bottom triangle:
-				vertices[vertexIndex + 9] = center;
-				vertices[vertexIndex + 10] = bottomRight;
-				vertices[vertexIndex + 11] = bottomLeft;
-				vertexIndex += 12;
+				AddVerticesAsNormalQuad(ref vertexIndex, center, bottomLeft, topLeft, topRight, bottomRight);
 			}
 		}
 
@@ -116,6 +108,28 @@ public class Chunk : Spatial
 		surfaceTool.GenerateNormals();
 
 		ApplyToMesh();
+	}
+
+	void AddVerticesAsNormalQuad(ref int index, Vector3 center, Vector3 bottomLeft, Vector3 topLeft, Vector3 topRight, Vector3 bottomRight)
+	{
+		// Add triangles (as a set of 3 vertices) to the array:
+		// 1. Left bottom triangle:
+		vertices[index] = center;
+		vertices[index + 1] = bottomLeft;
+		vertices[index + 2] = topLeft;
+		// 2. Left top triangle:
+		vertices[index + 3] = center;
+		vertices[index + 4] = topLeft;
+		vertices[index + 5] = topRight;
+		// 3. Right top triangle:
+		vertices[index + 6] = center;
+		vertices[index + 7] = topRight;
+		vertices[index + 8] = bottomRight;
+		// 4. Right bottom triangle:
+		vertices[index + 9] = center;
+		vertices[index + 10] = bottomRight;
+		vertices[index + 11] = bottomLeft;
+		index += 12;
 	}
 
 	MeshInstance ApplyToMesh()

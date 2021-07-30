@@ -7,7 +7,7 @@ public class World : Spatial
 {
 	float chunk_size = 50.0f;
 	int chunk_detail = 7;
-	int chunk_amount = 3;
+	int chunk_amount = 1;
 	bool detailDegrade = true;
 
 	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
@@ -53,16 +53,20 @@ public class World : Spatial
 		{
 			if (Player != null)
 			{
+				Vector3 pos = Player.Translation;
 				RemoveChild(Player);
 				Player = null;
 				FlyCam = FlyCamScene.Instance() as Spatial;
+				FlyCam.Translation = pos;
 				AddChild(FlyCam);
 			}
 			else
 			{
+				Vector3 pos = FlyCam.Translation;
 				RemoveChild(FlyCam);
 				FlyCam = null;
 				Player = PlayerScene.Instance() as Spatial;
+				Player.Translation = pos;
 				AddChild(Player);
 			}
 		}
@@ -99,6 +103,17 @@ public class World : Spatial
 		return diff;
 	}
 
+	int[] GetNeighboursDetail(int x, int y)
+	{
+		int d = GetDetailForIndex(x, y);
+		int[] result = new int[4];
+		result[0] = GetDetailForIndex(x, y + 1);
+		result[1] = GetDetailForIndex(x + 1, y);
+		result[2] = GetDetailForIndex(x, y - 1);
+		result[3] = GetDetailForIndex(x - 1, y);
+		return result;
+	}
+
 	void ProcessCell(int x, int z)
 	{
 		int detail = GetDetailForIndex(x, z);
@@ -117,8 +132,8 @@ public class World : Spatial
 				chunk.x = x;
 				chunk.z = z;
 			}
-			thread.Start(this, "LoadChunk", new object[4] { thread, chunk, x, z });
-			//LoadChunk(new object[4] { null, chunk, x, z });
+			thread.Start(this, "LoadChunk", new object[5] { thread, chunk, x, z, detail });
+			//LoadChunk(new object[5] { null, chunk, x, z, detail });
 		}
 	}
 
@@ -128,10 +143,9 @@ public class World : Spatial
 		Chunk chunk = arr[1] as Chunk;
 		int x = (int)arr[2];
 		int z = (int)arr[3];
+		int detail = (int)arr[4];
 
-		int detail = GetDetailForIndex(x, z);
-
-		chunk.SetDetail(detail);
+		chunk.SetDetail(detail, GetNeighboursDetail(x, z));
 		chunk.Generate();
 		chunk.Translation = new Vector3(chunk.x * chunk_size, 0, chunk.z * chunk_size);
 
