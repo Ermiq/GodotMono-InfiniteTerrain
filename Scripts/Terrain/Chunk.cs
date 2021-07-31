@@ -18,7 +18,7 @@ public class Chunk : Spatial
 	float size;
 	int quadsInRow;
 	Vector3[] vertices;
-	int[] neighboursDetail = new int[4];
+	int seamSide = -1;
 
 	Task task;
 
@@ -31,11 +31,11 @@ public class Chunk : Spatial
 		this.size = size;
 	}
 
-	public void SetDetail(int detail, int[] neighboursDetail)
+	public void SetDetail(int detail, int seamSide)
 	{
 		this.detail = detail;
 		quadsInRow = (int)Mathf.Pow(2, detail);
-		this.neighboursDetail = neighboursDetail;
+		this.seamSide = seamSide;
 	}
 
 	// Create a mesh from quads. Each quad is made of 4 triangles (as splitted by 2 diagonal lines).
@@ -51,12 +51,8 @@ public class Chunk : Spatial
 
 	void StartGeneration()
 	{
-		int seamSide = -1;
-		for (int i = 0; i < 4; i++)
-		{
-			if (neighboursDetail[i] < detail)
-				seamSide = i;
-		}
+		if (seamSide > -1)
+			GD.Print(x + ", " + z + " seam at " + seamSide);
 
 		int verticesAmount = (int)Mathf.Pow(quadsInRow, 2) * 12; // 12 vertices in each quad
 		vertices = new Vector3[verticesAmount];
