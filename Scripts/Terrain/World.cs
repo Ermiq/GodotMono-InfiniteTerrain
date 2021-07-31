@@ -103,7 +103,7 @@ public class World : Spatial
 		return diff;
 	}
 
-	int[] GetNeighboursDetail(int x, int y)
+	int GetSeamSide(int x, int y)
 	{
 		int d = GetDetailForIndex(x, y);
 		int[] result = new int[4];
@@ -111,7 +111,10 @@ public class World : Spatial
 		result[1] = GetDetailForIndex(x + 1, y);
 		result[2] = GetDetailForIndex(x, y - 1);
 		result[3] = GetDetailForIndex(x - 1, y);
-		return result;
+		for (int i = 0; i < result.Length; i++)
+			if (result[i] < d)
+				return i;
+		return -1;
 	}
 
 	void ProcessCell(int x, int z)
@@ -145,7 +148,7 @@ public class World : Spatial
 		int z = (int)arr[3];
 		int detail = (int)arr[4];
 
-		chunk.SetDetail(detail, GetNeighboursDetail(x, z));
+		chunk.SetDetail(detail, GetSeamSide(x, z));
 		chunk.Generate();
 		chunk.Translation = new Vector3(chunk.x * chunk_size, 0, chunk.z * chunk_size);
 
