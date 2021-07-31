@@ -52,7 +52,14 @@ public class Chunk : Spatial
 	void StartGeneration()
 	{
 		if (seamSide > -1)
+		{
 			GD.Print(x + ", " + z + " seam at " + seamSide);
+			int[] edgeQuads = GetEdgeQuads();
+			string s = "";
+			for (int i = quadsInRow * seamSide; i < quadsInRow * seamSide + quadsInRow; i++)
+				s += edgeQuads[i] + ", ";
+			GD.Print("Edge quads: " + s);
+		}
 
 		int verticesAmount = (int)Mathf.Pow(quadsInRow, 2) * 12; // 12 vertices in each quad
 		vertices = new Vector3[verticesAmount];
@@ -126,6 +133,37 @@ public class Chunk : Spatial
 		vertices[index + 10] = bottomRight;
 		vertices[index + 11] = bottomLeft;
 		index += 12;
+	}
+	
+	int[] GetEdgeQuads()
+	{
+		int count = 0;
+		int amount = quadsInRow * 4;
+		int[] quads = new int[amount];
+		// upper side
+		for (int i = 0; i < quadsInRow; i++)
+		{
+			quads[count] = i;
+			count++;
+		}
+		// right side
+		for (int i = quadsInRow - 1; i < quadsInRow * quadsInRow; i += quadsInRow)
+		{
+			quads[count] = i;
+			count++;
+		}
+		// bottom side
+		for (int i = quadsInRow * quadsInRow - quadsInRow; i < quadsInRow * quadsInRow; i++)
+		{
+			quads[count]= i;
+			count++;
+		}
+		// left side
+		for (int i = 0; i < quadsInRow * quadsInRow - quadsInRow; i += quadsInRow)
+		{
+			quads[count] = i;
+			count++;
+		}
 	}
 
 	MeshInstance ApplyToMesh()
