@@ -61,18 +61,19 @@ public class Chunk : Spatial
 		{
 			return;
 		}
-		
+
 		seamQuads = new List<int>();
 		seamQuads.AddRange(GetEdgeQuads());
 
 		vertices = new List<Vector3>();
-		
-		// Calculate a half size of a quad edge.
-		float quadHalfSize = (float)size / (float)quadsInRow * 0.499f;
-		// Get the starting position from which the quads generation will begin.
-		// This position is the center of the first (left-top) quad.
+
 		Vector3 center;
-		
+		SeamSide quadSeamSide;
+		Quad quad;
+
+		// Calculate half size of the quad's edge. We'll use it to get the quad center position.
+		float quadHalfSize = (float)size / (float)quadsInRow * 0.499f;
+
 		for (int z = 0; z < quadsInRow; z++)
 		{
 			for (int x = 0; x < quadsInRow; x++)
@@ -86,9 +87,9 @@ public class Chunk : Spatial
 					(size * -0.5f + quadHalfSize) + x * (quadHalfSize * 2f),
 					0,
 					(size * -0.5f + quadHalfSize) + z * (quadHalfSize * 2f));
-				
-				SeamSide quadSeamSide = seamQuads.Contains(quadsInRow * z + x) ? seamSide : SeamSide.NONE;
-				Quad quad = new Quad(quadsInRow * z + x, quadSeamSide, center, quadHalfSize);
+
+				quadSeamSide = seamQuads.Contains(quadsInRow * z + x) ? seamSide : SeamSide.NONE;
+				quad = new Quad(quadsInRow * z + x, quadSeamSide, center, quadHalfSize);
 				vertices.AddRange(quad.vertices);
 			}
 		}
@@ -109,44 +110,6 @@ public class Chunk : Spatial
 		ApplyToMesh();
 	}
 
-	int[] GetEdgeQuads()
-	{
-		int count = 0;
-		int[] result = new int[quadsInRow];
-		switch (seamSide)
-		{
-			case SeamSide.TOP: // upper side
-				for (int i = 0; i < quadsInRow; i++)
-				{
-					result[count] = i;
-					count++;
-				}
-				break;
-			case SeamSide.RIGHT: // right side
-				for (int i = quadsInRow - 1; i < quadsInRow * quadsInRow; i += quadsInRow)
-				{
-					result[count] = i;
-					count++;
-				}
-				break;
-			case SeamSide.BOTTOM: // bottom side
-				for (int i = quadsInRow * quadsInRow - quadsInRow; i < quadsInRow * quadsInRow; i++)
-				{
-					result[count] = i;
-					count++;
-				}
-				break;
-			case SeamSide.LEFT: // left side
-				for (int i = 0; i < quadsInRow * quadsInRow - quadsInRow; i += quadsInRow)
-				{
-					result[count] = i;
-					count++;
-				}
-				break;
-		}
-		return result;
-	}
-
 	MeshInstance ApplyToMesh()
 	{
 		MeshInstance newMesh = new MeshInstance();
@@ -161,6 +124,42 @@ public class Chunk : Spatial
 		mesh_instance = newMesh;
 
 		return newMesh;
+	}
+
+	int[] GetEdgeQuads()
+	{
+		int[] result = new int[quadsInRow];
+		int count = 0, start = 0, end = 0, step = 0;
+
+		switch (seamSide)
+		{
+			case SeamSide.TOP:
+				start = 0;
+				end = quadsInRow;
+				step = 1;
+				break;
+			case SeamSide.RIGHT:
+				start = quadsInRow - 1;
+				end = quadsInRow * quadsInRow;
+				step = quadsInRow;
+				break;
+			case SeamSide.BOTTOM:
+				start = quadsInRow * quadsInRow - quadsInRow;
+				end = quadsInRow * quadsInRow;
+				step = 1;
+				break;
+			case SeamSide.LEFT:
+				start = 0;
+				end = quadsInRow * quadsInRow - quadsInRow;
+				step = quadsInRow;
+				break;
+		}
+		for (int i = start; i < end; i += step)
+		{
+			result[count] = i;
+			count++;
+		}
+		return result;
 	}
 
 	void ApplyYNoise(ref Vector3 vertex)
