@@ -17,7 +17,7 @@ public static class Statics
 
 		for (int k = 1; k <= sizeMinusOne; k++)
 		{
-			for (int j = 0; j < (k < sizeMinusOne ? 2 : 4); j++)
+			for (int j = 0; j < (k < sizeMinusOne ? 2 : 3); j++)
 			{
 				for (int i = 0; i < s; i++)
 				{
@@ -31,10 +31,20 @@ public static class Statics
 						case 2: y = y - 1; break;
 						case 3: x = x - 1; break;
 					}
+
+					if (k + 1 > sizeMinusOne && j + 1 >= (k + 1 < sizeMinusOne ? 2 : 3) && i + 1 >= s)
+						callBack(x, y);
 				}
 				d = (d + 1) % 4;
 			}
 			s = s + 1;
 		}
+	}
+
+	public static void IterateLinear(int size, int startX, int startY, Action<int, int> callBack)
+	{
+		for (int y = -size + startY; y < size + startY + 1; y++)
+			for (int x = -size + startX; x < size + startX + 1; x++)
+				callBack(x, y);
 	}
 }

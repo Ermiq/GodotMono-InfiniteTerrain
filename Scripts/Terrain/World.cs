@@ -5,9 +5,9 @@ using System.Collections.Generic;
 
 public class World : Spatial
 {
-	float chunk_size = 50.0f;
+	float chunk_size = 100.0f;
 	int chunk_detail = 7;
-	int chunk_amount = 1;
+	int chunk_amount = 10;
 	bool detailDegrade = true;
 
 	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
@@ -27,6 +27,10 @@ public class World : Spatial
 	public override void _Ready()
 	{
 		base._Ready();
+
+		// Enable wireframe mode in game view:
+		VisualServer.SetDebugGenerateWireframes(true);
+		GetViewport().DebugDraw = Viewport.DebugDrawEnum.Wireframe;
 
 		noise = new OpenSimplexNoise();
 		noise.Seed = (int)OS.GetUnixTime();
@@ -48,6 +52,12 @@ public class World : Spatial
 	public override void _Process(float delta)
 	{
 		base._Process(delta);
+
+		if (Input.IsActionJustPressed("ui_up"))
+		{
+			var vp = GetViewport();
+			vp.DebugDraw = vp.DebugDraw == Viewport.DebugDrawEnum.Wireframe ? Viewport.DebugDrawEnum.Disabled : Viewport.DebugDrawEnum.Wireframe;
+		}
 
 		if (Input.IsActionJustPressed("ui_down"))
 		{
@@ -103,18 +113,30 @@ public class World : Spatial
 		return diff;
 	}
 
-	int GetSeamSide(int x, int y)
+	SeamSide GetSeamSide(int x, int y)
 	{
 		int d = GetDetailForIndex(x, y);
 		int[] result = new int[4];
-		result[0] = GetDetailForIndex(x, y + 1);
+		result[0] = GetDetailForIndex(x, y - 1);
 		result[1] = GetDetailForIndex(x + 1, y);
-		result[2] = GetDetailForIndex(x, y - 1);
+		result[2] = GetDetailForIndex(x, y + 1);
 		result[3] = GetDetailForIndex(x - 1, y);
-		for (int i = 0; i < result.Length; i++)
-			if (result[i] < d)
-				return i;
-		return -1;
+		for (int i = 0; i < 4; i++)
+			if (result[i] > d)
+			{
+				switch (i)
+				{
+					case 0:
+						return SeamSide.TOP;
+					case 1:
+						return SeamSide.RIGHT;
+					case 2:
+						return SeamSide.BOTTOM;
+					case 3:
+						return SeamSide.LEFT;
+				}
+			}
+		return SeamSide.NONE;
 	}
 
 	void ProcessCell(int x, int z)
@@ -132,6 +154,8 @@ public class World : Spatial
 			if (chunk == null)
 			{
 				chunk = GetFreeChunk();
+				if (chunk == null)
+					return;
 				chunk.x = x;
 				chunk.z = z;
 			}

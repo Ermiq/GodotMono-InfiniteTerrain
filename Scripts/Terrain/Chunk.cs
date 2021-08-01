@@ -4,6 +4,11 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
+public enum SeamSide
+{
+	TOP, RIGHT, BOTTOM, LEFT, NONE = -1
+}
+
 public class Chunk : Spatial
 {
 	public bool isBusy = false;
@@ -17,8 +22,9 @@ public class Chunk : Spatial
 	Material material;
 	float size;
 	int quadsInRow;
-	Vector3[] vertices;
-	int seamSide = -1;
+	List<Vector3> vertices;
+	SeamSide seamSide = SeamSide.NONE;
+	List<int> seamQuads;
 
 	Task task;
 
@@ -31,7 +37,7 @@ public class Chunk : Spatial
 		this.size = size;
 	}
 
-	public void SetDetail(int detail, int seamSide)
+	public void SetDetail(int detail, SeamSide seamSide)
 	{
 		this.detail = detail;
 		quadsInRow = (int)Mathf.Pow(2, detail);
@@ -51,28 +57,25 @@ public class Chunk : Spatial
 
 	void StartGeneration()
 	{
-		if (seamSide > -1)
+		if (quadsInRow <= 0)
 		{
-			GD.Print(x + ", " + z + " seam at " + seamSide);
-			int[] edgeQuads = GetEdgeQuads();
-			string s = "";
-			for (int i = quadsInRow * seamSide; i < quadsInRow * seamSide + quadsInRow; i++)
-				s += edgeQuads[i] + ", ";
-			GD.Print("Edge quads: " + s);
+			return;
 		}
+		
+		seamQuads = new List<int>();
+		seamQuads.AddRange(GetEdgeQuads());
 
-		int verticesAmount = (int)Mathf.Pow(quadsInRow, 2) * 12; // 12 vertices in each quad
-		vertices = new Vector3[verticesAmount];
-		int vertexIndex = 0;
-
+		vertices = new List<Vector3>();
+		
 		// Calculate a half size of a quad edge.
 		float quadHalfSize = (float)size / (float)quadsInRow * 0.499f;
 		// Get the starting position from which the quads generation will begin.
 		// This position is the center of the first (left-top) quad.
-		Vector3 center, bottomLeft, topLeft, topRight, bottomRight;
-		for (int x = 0; x < quadsInRow; x++)
+		Vector3 center;
+		
+		for (int z = 0; z < quadsInRow; z++)
 		{
-			for (int z = 0; z < quadsInRow; z++)
+			for (int x = 0; x < quadsInRow; x++)
 			{
 				// Each quad center is shifted by its x/z index.
 				// E.g., the 2nd quad's X coord = meshCenter - meshHalfSize + quadHalfSize + 1 quadFullSize (index x = 1).
@@ -83,19 +86,10 @@ public class Chunk : Spatial
 					(size * -0.5f + quadHalfSize) + x * (quadHalfSize * 2f),
 					0,
 					(size * -0.5f + quadHalfSize) + z * (quadHalfSize * 2f));
-				// Get 4 vertices of the quad (they relate to the center vertex):
-				bottomLeft = center + new Vector3(-quadHalfSize, 0, quadHalfSize);
-				topLeft = center + new Vector3(-quadHalfSize, 0, -quadHalfSize);
-				topRight = center + new Vector3(quadHalfSize, 0, -quadHalfSize);
-				bottomRight = center + new Vector3(quadHalfSize, 0, quadHalfSize);
-
-				ApplyYNoise(ref center);
-				ApplyYNoise(ref bottomLeft);
-				ApplyYNoise(ref topLeft);
-				ApplyYNoise(ref topRight);
-				ApplyYNoise(ref bottomRight);
-
-				AddVerticesAsNormalQuad(ref vertexIndex, center, bottomLeft, topLeft, topRight, bottomRight);
+				
+				SeamSide quadSeamSide = seamQuads.Contains(quadsInRow * z + x) ? seamSide : SeamSide.NONE;
+				Quad quad = new Quad(quadsInRow * z + x, quadSeamSide, center, quadHalfSize);
+				vertices.AddRange(quad.vertices);
 			}
 		}
 
@@ -103,9 +97,11 @@ public class Chunk : Spatial
 		surfaceTool.Begin(Mesh.PrimitiveType.Triangles);
 
 		// Send the vertices to the SurfaceTool:
-		for (int v = 0; v < vertices.Length; v++)
+		for (int v = 0; v < vertices.Count; v++)
 		{
-			surfaceTool.AddVertex(vertices[v]);
+			Vector3 vertex = vertices[v];
+			ApplyYNoise(ref vertex);
+			surfaceTool.AddVertex(vertex);
 		}
 		surfaceTool.SetMaterial(material);
 		surfaceTool.GenerateNormals();
@@ -113,57 +109,42 @@ public class Chunk : Spatial
 		ApplyToMesh();
 	}
 
-	void AddVerticesAsNormalQuad(ref int index, Vector3 center, Vector3 bottomLeft, Vector3 topLeft, Vector3 topRight, Vector3 bottomRight)
-	{
-		// Add triangles (as a set of 3 vertices) to the array:
-		// 1. Left bottom triangle:
-		vertices[index] = center;
-		vertices[index + 1] = bottomLeft;
-		vertices[index + 2] = topLeft;
-		// 2. Left top triangle:
-		vertices[index + 3] = center;
-		vertices[index + 4] = topLeft;
-		vertices[index + 5] = topRight;
-		// 3. Right top triangle:
-		vertices[index + 6] = center;
-		vertices[index + 7] = topRight;
-		vertices[index + 8] = bottomRight;
-		// 4. Right bottom triangle:
-		vertices[index + 9] = center;
-		vertices[index + 10] = bottomRight;
-		vertices[index + 11] = bottomLeft;
-		index += 12;
-	}
-	
 	int[] GetEdgeQuads()
 	{
 		int count = 0;
-		int amount = quadsInRow * 4;
-		int[] quads = new int[amount];
-		// upper side
-		for (int i = 0; i < quadsInRow; i++)
+		int[] result = new int[quadsInRow];
+		switch (seamSide)
 		{
-			quads[count] = i;
-			count++;
+			case SeamSide.TOP: // upper side
+				for (int i = 0; i < quadsInRow; i++)
+				{
+					result[count] = i;
+					count++;
+				}
+				break;
+			case SeamSide.RIGHT: // right side
+				for (int i = quadsInRow - 1; i < quadsInRow * quadsInRow; i += quadsInRow)
+				{
+					result[count] = i;
+					count++;
+				}
+				break;
+			case SeamSide.BOTTOM: // bottom side
+				for (int i = quadsInRow * quadsInRow - quadsInRow; i < quadsInRow * quadsInRow; i++)
+				{
+					result[count] = i;
+					count++;
+				}
+				break;
+			case SeamSide.LEFT: // left side
+				for (int i = 0; i < quadsInRow * quadsInRow - quadsInRow; i += quadsInRow)
+				{
+					result[count] = i;
+					count++;
+				}
+				break;
 		}
-		// right side
-		for (int i = quadsInRow - 1; i < quadsInRow * quadsInRow; i += quadsInRow)
-		{
-			quads[count] = i;
-			count++;
-		}
-		// bottom side
-		for (int i = quadsInRow * quadsInRow - quadsInRow; i < quadsInRow * quadsInRow; i++)
-		{
-			quads[count]= i;
-			count++;
-		}
-		// left side
-		for (int i = 0; i < quadsInRow * quadsInRow - quadsInRow; i += quadsInRow)
-		{
-			quads[count] = i;
-			count++;
-		}
+		return result;
 	}
 
 	MeshInstance ApplyToMesh()
@@ -171,7 +152,7 @@ public class Chunk : Spatial
 		MeshInstance newMesh = new MeshInstance();
 		// Generate a mesh instance data:
 		newMesh.Mesh = surfaceTool.Commit();
-		newMesh.CreateTrimeshCollision();
+		//newMesh.CreateTrimeshCollision();
 		newMesh.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
 
 		if (mesh_instance != null)
