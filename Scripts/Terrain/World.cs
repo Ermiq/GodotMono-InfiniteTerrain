@@ -6,8 +6,8 @@ using System.Collections.Generic;
 public class World : Spatial
 {
 	float chunk_size = 100.0f;
-	int max_detail = 7;
-	int rings_amount = 10;
+	int max_detail = 2;
+	int rings_amount = 3;
 	bool detailDegrade = true;
 
 	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
@@ -42,7 +42,7 @@ public class World : Spatial
 		for (int i = 0; i < rings_amount; i++)
 		{
 			float s = GetSizeForRing(i);
-			Ring ring = new Ring(i, max_detail - i, noise, material, s);
+			Ring ring = new Ring(i, max_detail, noise, material, s);
 			rings.Add(ring);
 			foreach(Chunk c in ring.chunks)
 			{

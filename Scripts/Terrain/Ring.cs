@@ -12,6 +12,8 @@ public class Ring
 		{
 			for (int k = -1; k < 2; k++)
 			{
+				if (j == 0 && k == 0 && index != 0)
+					continue;
 				Chunk chunk = new Chunk(noise, material, new Vector2(j, k), size);
 				chunks.Add(chunk);
 				chunk.SetDetail(detail + (index - 1));

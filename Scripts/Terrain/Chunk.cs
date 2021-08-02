@@ -38,13 +38,13 @@ public class Chunk : Spatial
 	SeamSide GetSeamSide()
 	{
 		if (index == Vector2.Up)
-			return SeamSide.TOP;
-		else if (index == Vector2.Right)
-			return SeamSide.RIGHT;
-		else if (index == Vector2.Down)
 			return SeamSide.BOTTOM;
-		else if (index == Vector2.Left)
+		else if (index == Vector2.Right)
 			return SeamSide.LEFT;
+		else if (index == Vector2.Down)
+			return SeamSide.TOP;
+		else if (index == Vector2.Left)
+			return SeamSide.RIGHT;
 		else return SeamSide.NONE;
 	}
 
@@ -126,7 +126,7 @@ public class Chunk : Spatial
 		MeshInstance newMesh = new MeshInstance();
 		// Generate a mesh instance data:
 		newMesh.Mesh = surfaceTool.Commit();
-		//newMesh.CreateTrimeshCollision();
+		newMesh.CreateTrimeshCollision();
 		newMesh.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
 
 		if (mesh_instance != null)
