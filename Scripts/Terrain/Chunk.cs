@@ -12,8 +12,7 @@ public enum SeamSide
 public class Chunk : Spatial
 {
 	public bool isBusy = false;
-	public int x;
-	public int z;
+	public Vector2 index;
 	public int detail { get; set; }
 
 	MeshInstance mesh_instance;
@@ -28,13 +27,12 @@ public class Chunk : Spatial
 
 	Task task;
 
-	public Chunk(OpenSimplexNoise noise, Material material, int x, int z, float size)
+	public Chunk(OpenSimplexNoise noise, Material material, Vector2 index, float size)
 	{
 		this.noise = noise;
 		this.material = material;
-		this.x = x;
-		this.z = z;
 		this.size = size;
+		this.index = index;
 	}
 
 	public void SetDetail(int detail, SeamSide seamSide)
@@ -72,7 +70,7 @@ public class Chunk : Spatial
 		Quad quad;
 
 		// Calculate half size of the quad's edge. We'll use it to get the quad center position.
-		float quadHalfSize = (float)size / (float)quadsInRow * 0.499f;
+		float quadHalfSize = size / (float)quadsInRow * 0.499f;
 
 		for (int z = 0; z < quadsInRow; z++)
 		{
@@ -164,6 +162,11 @@ public class Chunk : Spatial
 
 	void ApplyYNoise(ref Vector3 vertex)
 	{
-		vertex.y = noise.GetNoise2d(vertex.x + x * size, vertex.z + z * size) * 80f;
+		float offset = 0;
+		for (int i = 0; i < ring; i++)
+		{
+			offset += (ring - 1) * 3 * chunkSize;
+		}
+		vertex.y = noise.GetNoise2d(vertex.x + offset, vertex.z + offset) * 80f;
 	}
 }

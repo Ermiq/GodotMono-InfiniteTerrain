@@ -6,8 +6,8 @@ using System.Collections.Generic;
 public class World : Spatial
 {
 	float chunk_size = 100.0f;
-	int chunk_detail = 7;
-	int chunk_amount = 10;
+	int max_detail = 7;
+	int rings_amount = 10;
 	bool detailDegrade = true;
 
 	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
@@ -39,13 +39,20 @@ public class World : Spatial
 
 		thread = new Thread();
 
-		Statics.IterateSpiral(chunk_amount * 2, 0, 0, (x, y) =>
+		Chunk chunk = new Chunk(noise, material, new Vector2(0, 0), chunk_size);
+		AddChild(chunk);
+		chunks.Add(chunk);
+		for (int i = 1; i < rings_amount; i++)
 		{
-			Chunk chunk = new Chunk(noise, material, x, y, chunk_size);
-			AddChild(chunk);
-			chunks.Add(chunk);
-		});
-					
+			float s = chunk_size * (float)Math.Pow(1.5f, i);
+			Ring ring = new Ring(i, max_detail - i, noise, material, s);
+			foreach(Chunk c in ring.chunks)
+			{
+				AddChild(c);
+				chunks.Add(c);
+			}
+		}
+		
 		Player = GetNode("Player") as Spatial;
 	}
 
@@ -98,52 +105,32 @@ public class World : Spatial
 		playerPosIndexZ = (int)(player_translation.z / chunk_size);
 	}
 
-	int GetDetailForIndex(int x, int z)
+	int GetDetailForIndex(int ring)
 	{
-		int offset = GetIndexOffset(x, z);
-		if (offset < 2)
-			return chunk_detail;
+		if (ring == 0)
+			return max_detail;
 		else
-			return chunk_detail - offset + 1;
+			return max_detail - ring;
 	}
 
-	int GetIndexOffset(int x, int z)
+	SeamSide GetSeamSide(Vector2 index)
 	{
-		int diff = Mathf.Max(Mathf.Abs(playerPosIndexX - x), Mathf.Abs(playerPosIndexZ - z));
-		return diff;
+		if (index == Vector2.Up)
+			return SeamSide.TOP;
+		else if (index == Vector2.Right)
+			return SeamSide.RIGHT;
+		else if (index == Vector2.Down)
+			return SeamSide.BOTTOM;
+		else if (index == Vector2.Left)
+			return SeamSide.LEFT;
+		else return SeamSide.NONE;
 	}
 
-	SeamSide GetSeamSide(int x, int y)
+	void ProcessCell(int ring, Vector2 index)
 	{
-		int d = GetDetailForIndex(x, y);
-		int[] result = new int[4];
-		result[0] = GetDetailForIndex(x, y - 1);
-		result[1] = GetDetailForIndex(x + 1, y);
-		result[2] = GetDetailForIndex(x, y + 1);
-		result[3] = GetDetailForIndex(x - 1, y);
-		for (int i = 0; i < 4; i++)
-			if (result[i] > d)
-			{
-				switch (i)
-				{
-					case 0:
-						return SeamSide.TOP;
-					case 1:
-						return SeamSide.RIGHT;
-					case 2:
-						return SeamSide.BOTTOM;
-					case 3:
-						return SeamSide.LEFT;
-				}
-			}
-		return SeamSide.NONE;
-	}
+		int detail = GetDetailForIndex(ring);
 
-	void ProcessCell(int x, int z)
-	{
-		int detail = GetDetailForIndex(x, z);
-
-		Chunk chunk = chunks.Find(c => c.x == x && c.z == z);
+		Chunk chunk = chunks.Find(c => c.detail == ring && c.index == index);
 		if (chunk != null && chunk.detail == detail)
 		{
 			return;
@@ -156,10 +143,10 @@ public class World : Spatial
 				chunk = GetFreeChunk();
 				if (chunk == null)
 					return;
-				chunk.x = x;
-				chunk.z = z;
+				chunk.ring = ring;
+				chunk.index = index;
 			}
-			thread.Start(this, "LoadChunk", new object[5] { thread, chunk, x, z, detail });
+			thread.Start(this, "LoadChunk", new object[5] { thread, chunk, ring, index, detail });
 			//LoadChunk(new object[5] { null, chunk, x, z, detail });
 		}
 	}
@@ -168,13 +155,13 @@ public class World : Spatial
 	{
 		Thread thread = arr[0] as Thread;
 		Chunk chunk = arr[1] as Chunk;
-		int x = (int)arr[2];
-		int z = (int)arr[3];
+		int ring = (int)arr[2];
+		Vector2 index = (Vector2)arr[3];
 		int detail = (int)arr[4];
 
-		chunk.SetDetail(detail, GetSeamSide(x, z));
+		chunk.SetDetail(detail, GetSeamSide(chunk.index));
 		chunk.Generate();
-		chunk.Translation = new Vector3(chunk.x * chunk_size, 0, chunk.z * chunk_size);
+		chunk.Translation = new Vector3(chunk_size * Mathf.Pow(3, ring - 1), 0, chunk_size * Mathf.Pow(3, ring - 1));
 
 		CallDeferred("FinishThread", chunk, thread);
 	}
@@ -188,13 +175,12 @@ public class World : Spatial
 	{
 		foreach (Chunk chunk in chunks)
 		{
-			if (GetIndexOffset(chunk.x, chunk.z) > chunk_amount)
+			if (Mathf.Max(Mathf.Abs(chunk.index.x), Mathf.Abs(chunk.index.y)) > rings_amount)
 			{
 				chunk.isBusy = false;
 			}
+			ProcessCell(chunk.ring, chunk.index);
 		}
-		
-		Statics.IterateSpiral(chunk_amount * 2, playerPosIndexX, playerPosIndexZ, ProcessCell);
 	}
 
 	Chunk GetFreeChunk()
