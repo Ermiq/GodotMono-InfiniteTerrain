@@ -21,7 +21,7 @@ public class Ring
 		}
 	}
 	
-	public Shift(float offsetX, float offsetY)
+	public void Shift(float offsetX, float offsetY)
 	{
 		foreach (Chunk chunk in chunks)
 		{

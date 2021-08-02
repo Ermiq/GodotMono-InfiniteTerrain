@@ -175,11 +175,12 @@ public class Chunk : Spatial
 
 	void ApplyYNoise(ref Vector3 vertex)
 	{
-		float offset = 0;
+		/*float offset = 0;
 		for (int i = 0; i < ring; i++)
 		{
 			offset += (ring - 1) * 3 * chunkSize;
 		}
 		vertex.y = noise.GetNoise2d(vertex.x + offset, vertex.z + offset) * 80f;
+		*/
 	}
 }

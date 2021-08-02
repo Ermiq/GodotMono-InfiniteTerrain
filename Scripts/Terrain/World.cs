@@ -103,16 +103,16 @@ public class World : Spatial
 			return;
 		}
 		int prevX = playerPosIndexX;
-		int prevY = playerPosIndexY;
+		int prevY = playerPosIndexZ;
 		Vector3 player_translation = Player.Translation;
 		player_translation.x += player_translation.x > 0 ? chunk_size * 0.5f : chunk_size * -0.5f;
 		player_translation.z += player_translation.z > 0 ? chunk_size * 0.5f : chunk_size * -0.5f;
 		playerPosIndexX = (int)(player_translation.x / chunk_size);
 		playerPosIndexZ = (int)(player_translation.z / chunk_size);
-		if (playerPosIndexX != prevX || playerPosIndexY != prevY)
+		if (playerPosIndexX != prevX || playerPosIndexZ != prevY)
 		{
 			float offsetX = (playerPosIndexX - prevX) * chunk_size;
-			float offsetY = (playerPosIndexY - prevY) * chunk_size;
+			float offsetY = (playerPosIndexZ - prevY) * chunk_size;
 			UpdateRings(offsetX, offsetY);
 		}
 	}
@@ -126,10 +126,10 @@ public class World : Spatial
 		//}
 	}
 
-	void LoadChunk(object[] arr)
+	void LoadRing(object[] arr)
 	{
 		Thread thread = arr[0] as Thread;
-		Chunk chunk = arr[1] as Chunk;
+		Ring ring = arr[1] as Ring;
 		float offsetX = (float)arr[2];
 		float offsetY = (float)arr[3];
 		
