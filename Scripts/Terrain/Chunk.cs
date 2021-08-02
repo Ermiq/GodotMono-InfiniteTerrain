@@ -34,12 +34,25 @@ public class Chunk : Spatial
 		this.size = size;
 		this.index = index;
 	}
+	
+	SeamSide GetSeamSide()
+	{
+		if (index == Vector2.Up)
+			return SeamSide.TOP;
+		else if (index == Vector2.Right)
+			return SeamSide.RIGHT;
+		else if (index == Vector2.Down)
+			return SeamSide.BOTTOM;
+		else if (index == Vector2.Left)
+			return SeamSide.LEFT;
+		else return SeamSide.NONE;
+	}
 
-	public void SetDetail(int detail, SeamSide seamSide)
+	public void SetDetail(int detail)
 	{
 		this.detail = detail;
 		quadsInRow = (int)Mathf.Pow(2, detail);
-		this.seamSide = seamSide;
+		this.seamSide = GetSeamSide();
 	}
 
 	// Create a mesh from quads. Each quad is made of 4 triangles (as splitted by 2 diagonal lines).
