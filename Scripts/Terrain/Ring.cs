@@ -6,7 +6,7 @@ public class Ring
 {
 	public List<Chunk> chunks = new List<Chunk>();
 
-	public Ring(int index, int detail, OpenSimplexNoise noise, Material material, float size)
+	public Ring(OpenSimplexNoise noise, Material material, float size, int detail)
 	{
 		for (int j = -1; j < 2; j++)
 		{
@@ -14,11 +14,10 @@ public class Ring
 			{
 				if (j == 0 && k == 0 && index != 0)
 					continue;
-				Chunk chunk = new Chunk(noise, material, new Vector2(j, k), size);
-				chunks.Add(chunk);
-				chunk.SetDetail(detail + (index - 1));
-				chunk.Generate();
+				Chunk chunk = new Chunk(noise, material, new Vector2(j, k), size, detail);
 				chunk.Translation = new Vector3(j * size, 0, k * size);
+				chunk.Generate();
+				chunks.Add(chunk);
 			}
 		}
 	}
