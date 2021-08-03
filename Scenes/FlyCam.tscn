@@ -3,5 +3,5 @@
 [ext_resource path="res://Scripts/CameraControl.gd" type="Script" id=1]
 
 [node name="Camera" type="Camera"]
-far = 2000.0
+far = 10000.0
 script = ExtResource( 1 )

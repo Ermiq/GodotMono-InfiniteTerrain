@@ -6,10 +6,9 @@ using System.Collections.Generic;
 public class World : Spatial
 {
 	float originSize = 100.0f;
-	int originDetail = 7;
-	int ringsAmount = 6;
-	bool detailDegrade = true;
-
+	int detail = 6;
+	int ringsAmount = 1;
+	
 	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
 	PackedScene FlyCamScene = ResourceLoader.Load("res://Scenes/FlyCam.tscn") as PackedScene;
 	Material material = ResourceLoader.Load("res://Terrain.material") as Material;
@@ -18,11 +17,14 @@ public class World : Spatial
 	Spatial FlyCam;
 
 	OpenSimplexNoise noise;
-	List<Ring> rings= new List<Ring>();
+	List<Ring> rings = new List<Ring>();
 
-	int playerPosIndexX, playerPosIndexZ;
+	int playerPosX, playerPosZ;
+	int playerPosXPrevious, playerPosZPrevious;
+	float offsetX, offsetZ;
 
 	Thread thread;
+	int ringInProcess;
 
 	public override void _Ready()
 	{
@@ -34,28 +36,18 @@ public class World : Spatial
 
 		noise = new OpenSimplexNoise();
 		noise.Seed = (int)OS.GetUnixTime();
-		noise.Octaves = 6;
-		noise.Period = 160;
+		noise.Octaves = 8;
+		noise.Period = 190;
 
 		thread = new Thread();
-
-		int prevD = originDetail;
-		int[] details = new int[ringsAmount];
-		for (int i = 0; i < ringsAmount; i++)
-		{
-			details[i] = originDetail + i;// (int)(prevD * 0.5f);
-			//prevD = details[i] % 2 > 0 ? details[i] - 1 : details[i];
-		}
 		
-		for (int i = 0; i < ringsAmount; i++)
+		// Rings start from 1 and up to 'ringsAmount' inclusive.
+		for (int i = 1; i <= ringsAmount; i++)
 		{
 			// The formula of n-th term in a geometric progression:
 			// Tn = T1 * ratio^(n - 1)
 			// where T1 is 1st term, ratio is the progression ratio.
 			float size = originSize * (float)Mathf.Pow(3, i - 1);
-			int detail =
-				details[i];
-				//originDetail * (int)Mathf.Pow(2, i - 1);
 			
 			Ring ring = new Ring(i, noise, material, size, detail);
 			rings.Add(ring);
@@ -101,6 +93,7 @@ public class World : Spatial
 		}
 
 		GetPlayerPosIndex();
+		UpdateRings();
 	}
 
 	void GetPlayerPosIndex()
@@ -109,52 +102,48 @@ public class World : Spatial
 		{
 			return;
 		}
-		int prevX = playerPosIndexX;
-		int prevY = playerPosIndexZ;
 		Vector3 player_translation = Player.Translation;
 		player_translation.x += player_translation.x > 0 ? originSize * 0.5f : originSize * -0.5f;
 		player_translation.z += player_translation.z > 0 ? originSize * 0.5f : originSize * -0.5f;
-		playerPosIndexX = (int)(player_translation.x / originSize);
-		playerPosIndexZ = (int)(player_translation.z / originSize);
-		if (playerPosIndexX != prevX || playerPosIndexZ != prevY)
+		playerPosX = (int)(player_translation.x / originSize);
+		playerPosZ = (int)(player_translation.z / originSize);
+		if (playerPosX != playerPosXPrevious || playerPosZ != playerPosZPrevious)
 		{
-			float offsetX = (playerPosIndexX - prevX) * originSize;
-			float offsetY = (playerPosIndexZ - prevY) * originSize;
-			UpdateRings(offsetX, offsetY);
+			offsetX = playerPosX * originSize;
+			offsetZ = playerPosZ * originSize;
+			playerPosXPrevious = playerPosX;
+			playerPosZPrevious = playerPosZ;
 		}
 	}
 
-	void ProcessRing(Ring ring, float offsetX, float offsetY)
+	void UpdateRings()
 	{
-		//if (!thread.IsActive())
-		//{
-			//thread.Start(this, "LoadChunk", new object[4] { thread, ring, offsetX, offsetY });
-			LoadRing(new object[4] { null, ring, offsetX, offsetY });
-		//}
+		if (!thread.IsActive())
+		{
+			thread.Start(this, "LoadRings", new object[3] { thread, offsetX, offsetZ });
+			//LoadRing(new object[3] { null, offsetX, offsetZ });
+		}
 	}
 
-	void LoadRing(object[] arr)
+	void LoadRings(object[] arr)
 	{
 		Thread thread = arr[0] as Thread;
-		Ring ring = arr[1] as Ring;
-		float offsetX = (float)arr[2];
-		float offsetY = (float)arr[3];
+		float offsetX = (float)arr[1];
+		float offsetY = (float)arr[2];
 		
-		ring.Shift(offsetX, offsetY);
-
-		//CallDeferred("FinishThread", ring, thread);
-	}
-
-	void FinishThread(Chunk chunk, Thread thread)
-	{
-		thread.WaitToFinish();
-	}
-
-	void UpdateRings(float offsetX, float offsetY)
-	{
 		foreach (Ring ring in rings)
 		{
-			ProcessRing(ring, offsetX, offsetY);
+			ring.ShiftProcess(offsetX, offsetY);
 		}
+
+		CallDeferred("FinishThread", thread);
+	}
+
+	void FinishThread(Thread thread)
+	{
+		thread.WaitToFinish();
+
+		foreach (Ring ring in rings)
+			ring.ShiftApply();
 	}
 }

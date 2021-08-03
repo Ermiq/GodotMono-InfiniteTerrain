@@ -6,12 +6,13 @@ using System.Threading.Tasks;
 
 public enum SeamSide
 {
-	TOP, RIGHT, BOTTOM, LEFT, NONE = -1
+	NONE, TOP, RIGHT, BOTTOM, LEFT
 }
 
 public class Chunk : Spatial
 {
 	public Vector2 index;
+	public Vector3 prePosition { get; private set; }
 
 	MeshInstance mesh_instance;
 	SurfaceTool surfaceTool;
@@ -25,14 +26,34 @@ public class Chunk : Spatial
 
 	Task task;
 
-	public Chunk(OpenSimplexNoise noise, Material material, Vector2 index, float size, int detail)
+	public Chunk(OpenSimplexNoise noise, Material material, Vector2 index, float size, int detail, bool addSeams = false)
 	{
 		this.noise = noise;
 		this.material = material;
 		this.index = index;
 		this.size = size;
-		this.detail = detail;
-		this.seamSide = GetSeamSide();
+		this.detail = (int)Mathf.Pow(2, detail);
+		
+		if (addSeams)
+			this.seamSide = GetSeamSide();
+		else
+			this.seamSide = SeamSide.NONE;
+		
+		mesh_instance = new MeshInstance();
+		mesh_instance.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
+		AddChild(mesh_instance);
+	}
+
+	public void Prepair(float x, float z)
+	{
+		prePosition = new Vector3(index.x * size + x, 0, index.y * size + z);
+		Generate();
+	}
+
+	public void PrepairAsync(float x, float z)
+	{
+		prePosition = new Vector3(index.x * size + x, 0, index.y * size + z);
+		task = Task.Run(Generate);
 	}
 	
 	SeamSide GetSeamSide()
@@ -49,17 +70,7 @@ public class Chunk : Spatial
 	}
 
 	// Create a mesh from quads. Each quad is made of 4 triangles (as splitted by 2 diagonal lines).
-	public void GenerateAsync()
-	{
-		task = Task.Run(StartGeneration);
-	}
-
-	public void Generate()
-	{
-		StartGeneration();
-	}
-
-	void StartGeneration()
+	void Generate()
 	{
 		if (detail <= 0)
 		{
@@ -76,7 +87,7 @@ public class Chunk : Spatial
 		Quad quad;
 
 		// Calculate half size of the quad's edge. We'll use it to get the quad center position.
-		float quadHalfSize = size / (float)detail * 0.499f;
+		float quadHalfSize = size / (float)detail * 0.5f;
 
 		for (int z = 0; z < detail; z++)
 		{
@@ -105,29 +116,32 @@ public class Chunk : Spatial
 		for (int v = 0; v < vertices.Count; v++)
 		{
 			Vector3 vertex = vertices[v];
-			ApplyYNoise(ref vertex);
+			AddNoise(ref vertex);
 			surfaceTool.AddVertex(vertex);
 		}
 		surfaceTool.SetMaterial(material);
 		surfaceTool.GenerateNormals();
-
-		ApplyToMesh();
 	}
 
-	MeshInstance ApplyToMesh()
+	public void Apply()
 	{
-		MeshInstance newMesh = new MeshInstance();
 		// Generate a mesh instance data:
-		newMesh.Mesh = surfaceTool.Commit();
-		newMesh.CreateTrimeshCollision();
-		newMesh.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
+		Mesh m = surfaceTool.Commit();
+		mesh_instance.Mesh = m;
 
-		if (mesh_instance != null)
-			RemoveChild(mesh_instance);
-		AddChild(newMesh);
-		mesh_instance = newMesh;
+		// Remove old collision shape child of the mesh node:
+		if (mesh_instance.GetChildCount() > 0)
+		{
+			Node n = mesh_instance.GetChild(0);
+			if (n != null && n is StaticBody)
+			{
+				mesh_instance.RemoveChild(n);
+				n.QueueFree();
+			}
+		}
+		mesh_instance.CreateTrimeshCollision();
 
-		return newMesh;
+		Translation = prePosition;
 	}
 
 	int[] GetEdgeQuads()
@@ -166,8 +180,8 @@ public class Chunk : Spatial
 		return result;
 	}
 
-	void ApplyYNoise(ref Vector3 vertex)
+	void AddNoise(ref Vector3 vertex)
 	{
-		vertex.y = noise.GetNoise2d(vertex.x + Translation.x, vertex.z + Translation.z) * 80f;
+		vertex.y = noise.GetNoise2d(vertex.x + prePosition.x, vertex.z + prePosition.z) * 80f;
 	}
 }

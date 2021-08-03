@@ -10,7 +10,7 @@ public class Quad
 	public Quad(SeamSide seamSide, Vector3 center, float halfSize)
 	{
 		this.seamSide = seamSide;
-		vertices = new Vector3[seamSide == SeamSide.NONE ? 12 : 15];
+		vertices = new Vector3[seamSide == SeamSide.NONE ? 12 : 18];
 
 		// Get 4 vertices of the quad (they relate to the center vertex):
 		Vector3 bottomLeft = center + new Vector3(-halfSize, 0, halfSize);
@@ -39,15 +39,19 @@ public class Quad
 	{
 		if (side == seamSide)
 		{
-			Vector3 seamVertex = (corner1 + corner2) * 0.5f;
+			Vector3 seamVertex1 = corner1 + (corner2 - corner1) * 0.333333f;
+			Vector3 seamVertex2 = corner1 + (corner2 - corner1) * 0.666666f;
 
 			vertices[index] = center;
 			vertices[index + 1] = corner1;
-			vertices[index + 2] = seamVertex;
+			vertices[index + 2] = seamVertex1;
 			vertices[index + 3] = center;
-			vertices[index + 4] = seamVertex;
-			vertices[index + 5] = corner2;
-			index += 6;
+			vertices[index + 4] = seamVertex1;
+			vertices[index + 5] = seamVertex2;
+			vertices[index + 6] = center;
+			vertices[index + 7] = seamVertex2;
+			vertices[index + 8] = corner2;
+			index += 9;
 		}
 		else
 		{
