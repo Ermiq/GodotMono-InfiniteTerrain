@@ -11,28 +11,28 @@ public enum SeamSide
 
 public class Chunk : Spatial
 {
-	public bool isBusy = false;
 	public Vector2 index;
-	public int detail { get; set; }
 
 	MeshInstance mesh_instance;
 	SurfaceTool surfaceTool;
 	OpenSimplexNoise noise;
 	Material material;
 	float size;
-	int quadsInRow;
+	int detail;
 	List<Vector3> vertices;
 	SeamSide seamSide = SeamSide.NONE;
 	List<int> seamQuads;
 
 	Task task;
 
-	public Chunk(OpenSimplexNoise noise, Material material, Vector2 index, float size)
+	public Chunk(OpenSimplexNoise noise, Material material, Vector2 index, float size, int detail)
 	{
 		this.noise = noise;
 		this.material = material;
-		this.size = size;
 		this.index = index;
+		this.size = size;
+		this.detail = detail;
+		this.seamSide = GetSeamSide();
 	}
 	
 	SeamSide GetSeamSide()
@@ -48,13 +48,6 @@ public class Chunk : Spatial
 		else return SeamSide.NONE;
 	}
 
-	public void SetDetail(int detail)
-	{
-		this.detail = detail;
-		quadsInRow = (int)Mathf.Pow(2, detail);
-		this.seamSide = GetSeamSide();
-	}
-
 	// Create a mesh from quads. Each quad is made of 4 triangles (as splitted by 2 diagonal lines).
 	public void GenerateAsync()
 	{
@@ -68,7 +61,7 @@ public class Chunk : Spatial
 
 	void StartGeneration()
 	{
-		if (quadsInRow <= 0)
+		if (detail <= 0)
 		{
 			return;
 		}
@@ -83,11 +76,11 @@ public class Chunk : Spatial
 		Quad quad;
 
 		// Calculate half size of the quad's edge. We'll use it to get the quad center position.
-		float quadHalfSize = size / (float)quadsInRow * 0.499f;
+		float quadHalfSize = size / (float)detail * 0.499f;
 
-		for (int z = 0; z < quadsInRow; z++)
+		for (int z = 0; z < detail; z++)
 		{
-			for (int x = 0; x < quadsInRow; x++)
+			for (int x = 0; x < detail; x++)
 			{
 				// Each quad center is shifted by its x/z index.
 				// E.g., the 2nd quad's X coord = meshCenter - meshHalfSize + quadHalfSize + 1 quadFullSize (index x = 1).
@@ -99,8 +92,8 @@ public class Chunk : Spatial
 					0,
 					(size * -0.5f + quadHalfSize) + z * (quadHalfSize * 2f));
 
-				quadSeamSide = seamQuads.Contains(quadsInRow * z + x) ? seamSide : SeamSide.NONE;
-				quad = new Quad(quadsInRow * z + x, quadSeamSide, center, quadHalfSize);
+				quadSeamSide = seamQuads.Contains(detail * z + x) ? seamSide : SeamSide.NONE;
+				quad = new Quad(detail * z + x, quadSeamSide, center, quadHalfSize);
 				vertices.AddRange(quad.vertices);
 			}
 		}
@@ -139,30 +132,30 @@ public class Chunk : Spatial
 
 	int[] GetEdgeQuads()
 	{
-		int[] result = new int[quadsInRow];
+		int[] result = new int[detail];
 		int count = 0, start = 0, end = 0, step = 0;
 
 		switch (seamSide)
 		{
 			case SeamSide.TOP:
 				start = 0;
-				end = quadsInRow;
+				end = detail;
 				step = 1;
 				break;
 			case SeamSide.RIGHT:
-				start = quadsInRow - 1;
-				end = quadsInRow * quadsInRow;
-				step = quadsInRow;
+				start = detail - 1;
+				end = detail * detail;
+				step = detail;
 				break;
 			case SeamSide.BOTTOM:
-				start = quadsInRow * quadsInRow - quadsInRow;
-				end = quadsInRow * quadsInRow;
+				start = detail * detail - detail;
+				end = detail * detail;
 				step = 1;
 				break;
 			case SeamSide.LEFT:
 				start = 0;
-				end = quadsInRow * quadsInRow - quadsInRow;
-				step = quadsInRow;
+				end = detail * detail - detail;
+				step = detail;
 				break;
 		}
 		for (int i = start; i < end; i += step)
@@ -175,12 +168,6 @@ public class Chunk : Spatial
 
 	void ApplyYNoise(ref Vector3 vertex)
 	{
-		/*float offset = 0;
-		for (int i = 0; i < ring; i++)
-		{
-			offset += (ring - 1) * 3 * chunkSize;
-		}
-		vertex.y = noise.GetNoise2d(vertex.x + offset, vertex.z + offset) * 80f;
-		*/
+		vertex.y = noise.GetNoise2d(vertex.x + Translation, vertex.z + Translation) * 80f;
 	}
 }
