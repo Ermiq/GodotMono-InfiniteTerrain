@@ -7,7 +7,7 @@ public class World : Spatial
 {
 	float originSize = 100.0f;
 	int detail = 6;
-	int ringsAmount = 1;
+	int ringsAmount = 5;
 	
 	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
 	PackedScene FlyCamScene = ResourceLoader.Load("res://Scenes/FlyCam.tscn") as PackedScene;
@@ -93,7 +93,6 @@ public class World : Spatial
 		}
 
 		GetPlayerPosIndex();
-		UpdateRings();
 	}
 
 	void GetPlayerPosIndex()
@@ -111,6 +110,7 @@ public class World : Spatial
 		{
 			offsetX = playerPosX * originSize;
 			offsetZ = playerPosZ * originSize;
+			UpdateRings();
 			playerPosXPrevious = playerPosX;
 			playerPosZPrevious = playerPosZ;
 		}
