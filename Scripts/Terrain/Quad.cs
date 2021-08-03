@@ -4,13 +4,11 @@ using System;
 public class Quad
 {
     public Vector3[] vertices { get; private set; }
-
-	int index;
+    
 	SeamSide seamSide = SeamSide.NONE;
 	
-	public Quad(int index, SeamSide seamSide, Vector3 center, float halfSize)
+	public Quad(SeamSide seamSide, Vector3 center, float halfSize)
 	{
-		this.index = index;
 		this.seamSide = seamSide;
 		vertices = new Vector3[seamSide == SeamSide.NONE ? 12 : 15];
 
