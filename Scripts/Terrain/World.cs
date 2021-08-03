@@ -5,9 +5,9 @@ using System.Collections.Generic;
 
 public class World : Spatial
 {
-	float chunk_size = 100.0f;
-	int max_detail = 2;
-	int rings_amount = 3;
+	float originSize = 100.0f;
+	int originDetail = 2;
+	int ringsAmount = 3;
 	bool detailDegrade = true;
 
 	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
@@ -39,10 +39,15 @@ public class World : Spatial
 
 		thread = new Thread();
 		
-		for (int i = 0; i < rings_amount; i++)
+		for (int i = 0; i < ringsAmount; i++)
 		{
-			float s = GetSizeForRing(i);
-			Ring ring = new Ring(i, max_detail, noise, material, s);
+			// The formula of n-th term in a geometric progression:
+			// Tn = T1 * ratio^(n - 1)
+			// where T1 is 1st term, ratio is the progression ratio.
+			float size = originSize * (float)Mathf.Pow(3, ring - 1);
+			float detail = originDetail * (float)Mathf.Pow(3, ring - 1);
+			
+			Ring ring = new Ring(noise, material, size, detail);
 			rings.Add(ring);
 			foreach(Chunk c in ring.chunks)
 			{
@@ -51,14 +56,6 @@ public class World : Spatial
 		}
 		
 		Player = GetNode("Player") as Spatial;
-	}
-	
-	float GetSizeForRing(int ring)
-	{
-		// The formula of n-th term in a geometric progression:
-		// Tn = T1 * ratio^(n - 1)
-		// where T1 is 1st term, ratio is the progression ratio.
-		return chunk_size * (float)Mathf.Pow(3, ring - 1);
 	}
 
 	public override void _Process(float delta)
@@ -105,14 +102,14 @@ public class World : Spatial
 		int prevX = playerPosIndexX;
 		int prevY = playerPosIndexZ;
 		Vector3 player_translation = Player.Translation;
-		player_translation.x += player_translation.x > 0 ? chunk_size * 0.5f : chunk_size * -0.5f;
-		player_translation.z += player_translation.z > 0 ? chunk_size * 0.5f : chunk_size * -0.5f;
-		playerPosIndexX = (int)(player_translation.x / chunk_size);
-		playerPosIndexZ = (int)(player_translation.z / chunk_size);
+		player_translation.x += player_translation.x > 0 ? originSize * 0.5f : originSize * -0.5f;
+		player_translation.z += player_translation.z > 0 ? originSize * 0.5f : originSize * -0.5f;
+		playerPosIndexX = (int)(player_translation.x / originSize);
+		playerPosIndexZ = (int)(player_translation.z / originSize);
 		if (playerPosIndexX != prevX || playerPosIndexZ != prevY)
 		{
-			float offsetX = (playerPosIndexX - prevX) * chunk_size;
-			float offsetY = (playerPosIndexZ - prevY) * chunk_size;
+			float offsetX = (playerPosIndexX - prevX) * originSize;
+			float offsetY = (playerPosIndexZ - prevY) * originSize;
 			UpdateRings(offsetX, offsetY);
 		}
 	}
