@@ -6,8 +6,8 @@ using System.Collections.Generic;
 public class World : Spatial
 {
 	float originSize = 100.0f;
-	int originDetail = 2;
-	int ringsAmount = 3;
+	int originDetail = 7;
+	int ringsAmount = 6;
 	bool detailDegrade = true;
 
 	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
@@ -38,16 +38,26 @@ public class World : Spatial
 		noise.Period = 160;
 
 		thread = new Thread();
+
+		int prevD = originDetail;
+		int[] details = new int[ringsAmount];
+		for (int i = 0; i < ringsAmount; i++)
+		{
+			details[i] = originDetail + i;// (int)(prevD * 0.5f);
+			//prevD = details[i] % 2 > 0 ? details[i] - 1 : details[i];
+		}
 		
 		for (int i = 0; i < ringsAmount; i++)
 		{
 			// The formula of n-th term in a geometric progression:
 			// Tn = T1 * ratio^(n - 1)
 			// where T1 is 1st term, ratio is the progression ratio.
-			float size = originSize * (float)Mathf.Pow(3, ring - 1);
-			float detail = originDetail * (float)Mathf.Pow(3, ring - 1);
+			float size = originSize * (float)Mathf.Pow(3, i - 1);
+			int detail =
+				details[i];
+				//originDetail * (int)Mathf.Pow(2, i - 1);
 			
-			Ring ring = new Ring(noise, material, size, detail);
+			Ring ring = new Ring(i, noise, material, size, detail);
 			rings.Add(ring);
 			foreach(Chunk c in ring.chunks)
 			{

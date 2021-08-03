@@ -93,7 +93,7 @@ public class Chunk : Spatial
 					(size * -0.5f + quadHalfSize) + z * (quadHalfSize * 2f));
 
 				quadSeamSide = seamQuads.Contains(detail * z + x) ? seamSide : SeamSide.NONE;
-				quad = new Quad(detail * z + x, quadSeamSide, center, quadHalfSize);
+				quad = new Quad(quadSeamSide, center, quadHalfSize);
 				vertices.AddRange(quad.vertices);
 			}
 		}
@@ -168,6 +168,6 @@ public class Chunk : Spatial
 
 	void ApplyYNoise(ref Vector3 vertex)
 	{
-		vertex.y = noise.GetNoise2d(vertex.x + Translation, vertex.z + Translation) * 80f;
+		vertex.y = noise.GetNoise2d(vertex.x + Translation.x, vertex.z + Translation.z) * 80f;
 	}
 }
