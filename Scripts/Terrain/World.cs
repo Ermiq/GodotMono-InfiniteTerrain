@@ -5,8 +5,8 @@ using System.Collections.Generic;
 
 public class World : Spatial
 {
-	float originSize = 100.0f;
-	int detail = 6;
+	float originSize = 300.0f;
+	int detail = 7;
 	int ringsAmount = 5;
 	
 	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
@@ -36,8 +36,8 @@ public class World : Spatial
 
 		noise = new OpenSimplexNoise();
 		noise.Seed = (int)OS.GetUnixTime();
-		noise.Octaves = 8;
-		noise.Period = 190;
+		noise.Octaves = 4;
+		noise.Period = 300;
 
 		thread = new Thread();
 		

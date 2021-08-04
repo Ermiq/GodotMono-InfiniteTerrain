@@ -26,11 +26,10 @@ func _input(event: InputEvent) -> void:
 		rotation.x = clamp(rotation.x - event.relative.y * MOUSE_SENSITIVITY, deg2rad(-90), deg2rad(90))
 
 	if event.is_action_pressed("scroll_f"):
-		move_speed = min(3.0, move_speed + 0.1)
+		move_speed = min(300.0, move_speed + move_speed * 0.1)
 
 	if event.is_action_pressed("scroll_b"):
-		move_speed = max(0.1, move_speed - 0.1)
-
+		move_speed = max(0.1, move_speed - move_speed * 0.1)
 
 func _process(delta: float) -> void:
 	# Toggle mouse capture (only while the menu is not visible)

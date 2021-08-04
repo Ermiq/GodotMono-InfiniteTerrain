@@ -14,7 +14,7 @@ public class Ring
 			{
 				if (j == 0 && k == 0 && index != 1)
 					continue;
-				Chunk chunk = new Chunk(noise, material, new Vector2(j, k), size, detail, index != 1);
+				Chunk chunk = new Chunk(noise, material, new Vector2(j, k), size, detail, index > 1);
 				chunk.Prepair(0, 0);
 				chunk.Translation = chunk.prePosition;
 				chunk.Apply();

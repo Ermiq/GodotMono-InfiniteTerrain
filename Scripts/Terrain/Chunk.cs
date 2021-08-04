@@ -14,15 +14,20 @@ public class Chunk : Spatial
 	public Vector2 index;
 	public Vector3 prePosition { get; private set; }
 
-	MeshInstance mesh_instance;
+	MeshInstance mesh_instance1;
+	MeshInstance mesh_instance2;
+	CollisionShape collision;
+	Shape shape;
+	MeshInstance mesh_instanceCurrent;
 	SurfaceTool surfaceTool;
 	OpenSimplexNoise noise;
 	Material material;
 	float size;
 	int detail;
-	List<Vector3> vertices;
+	Quad[] quads;
 	SeamSide seamSide = SeamSide.NONE;
-	List<int> seamQuads;
+	int[] seamQuads;
+	bool addCollision;
 
 	Task task;
 
@@ -33,15 +38,61 @@ public class Chunk : Spatial
 		this.index = index;
 		this.size = size;
 		this.detail = (int)Mathf.Pow(2, detail);
+		this.addCollision = !addSeams;
 		
 		if (addSeams)
 			this.seamSide = GetSeamSide();
 		else
 			this.seamSide = SeamSide.NONE;
+
+		surfaceTool = new SurfaceTool();
 		
-		mesh_instance = new MeshInstance();
-		mesh_instance.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
-		AddChild(mesh_instance);
+		mesh_instance1 = new MeshInstance();
+		mesh_instance1.Visible = true;
+		mesh_instance1.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
+		AddChild(mesh_instance1);
+
+		mesh_instance2 = new MeshInstance();
+		mesh_instance2.Visible = false;
+		mesh_instance2.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
+		AddChild(mesh_instance2);
+
+		StaticBody staticBody = new StaticBody();
+		AddChild(staticBody);
+		collision = new CollisionShape();
+		staticBody.AddChild(collision);
+
+		mesh_instanceCurrent = mesh_instance1;
+
+		InitQuads();
+	}
+
+	void InitQuads()
+	{
+		quads = new Quad[detail * detail];
+		seamQuads = GetEdgeQuads();
+		
+		Vector3 center;
+		// Calculate half size of the quad's edge. We'll use it to get the quad center position.
+		float quadHalfSize = size / (float)detail * 0.5f;
+
+		for (int z = 0; z < detail; z++)
+		{
+			for (int x = 0; x < detail; x++)
+			{
+				// Each quad center is shifted by its x/z index.
+				// E.g., the 2nd quad's X coord = meshCenter - meshHalfSize + quadHalfSize + 1 quadFullSize (index x = 1).
+				// The quad which is at index x = 1, index z = 2 has coords:
+				// X = (meshCenter - meshHalfSize + quadHalfSize + 1 quadFullSize) by X axis  
+				// Z = (meshCenter - meshHalfSize + quadHalfSize + 2 quadFullSize) by Z axis
+				center = new Vector3(
+					(size * -0.5f + quadHalfSize) + x * (quadHalfSize * 2f),
+					0,
+					(size * -0.5f + quadHalfSize) + z * (quadHalfSize * 2f));
+
+				quads[detail * z + x] = new Quad(GetQuadSeamSide(detail * z + x), center, quadHalfSize);
+			}
+		}
 	}
 
 	public void Prepair(float x, float z)
@@ -77,70 +128,45 @@ public class Chunk : Spatial
 			return;
 		}
 
-		seamQuads = new List<int>();
-		seamQuads.AddRange(GetEdgeQuads());
-
-		vertices = new List<Vector3>();
-
-		Vector3 center;
-		SeamSide quadSeamSide;
-		Quad quad;
-
-		// Calculate half size of the quad's edge. We'll use it to get the quad center position.
-		float quadHalfSize = size / (float)detail * 0.5f;
-
-		for (int z = 0; z < detail; z++)
-		{
-			for (int x = 0; x < detail; x++)
-			{
-				// Each quad center is shifted by its x/z index.
-				// E.g., the 2nd quad's X coord = meshCenter - meshHalfSize + quadHalfSize + 1 quadFullSize (index x = 1).
-				// The quad which is at index x = 1, index z = 2 has coords:
-				// X = (meshCenter - meshHalfSize + quadHalfSize + 1 quadFullSize) by X axis  
-				// Z = (meshCenter - meshHalfSize + quadHalfSize + 2 quadFullSize) by Z axis
-				center = new Vector3(
-					(size * -0.5f + quadHalfSize) + x * (quadHalfSize * 2f),
-					0,
-					(size * -0.5f + quadHalfSize) + z * (quadHalfSize * 2f));
-
-				quadSeamSide = seamQuads.Contains(detail * z + x) ? seamSide : SeamSide.NONE;
-				quad = new Quad(quadSeamSide, center, quadHalfSize);
-				vertices.AddRange(quad.vertices);
-			}
-		}
-
-		surfaceTool = new SurfaceTool();
 		surfaceTool.Begin(Mesh.PrimitiveType.Triangles);
 
-		// Send the vertices to the SurfaceTool:
-		for (int v = 0; v < vertices.Count; v++)
+		foreach (Quad quad in quads)
 		{
-			Vector3 vertex = vertices[v];
-			AddNoise(ref vertex);
-			surfaceTool.AddVertex(vertex);
+			for (int v = 0; v < quad.vertices.Length; v++)
+			{
+				AddNoise(ref quad.vertices[v]);
+				surfaceTool.AddVertex(quad.vertices[v]);
+			}
 		}
+		
 		surfaceTool.SetMaterial(material);
 		surfaceTool.GenerateNormals();
+
+		// Generate a mesh instance data:
+		GetTheOtherMeshInstance().Mesh = surfaceTool.Commit();
+		if (addCollision)
+			// VERY SLOW STUFF: // AND CAUSES MEMEORY LEAK!!!
+			shape = GetTheOtherMeshInstance().Mesh.CreateTrimeshShape();
+
+		surfaceTool.Clear();
+		seamQuads = null;
+	}
+
+	MeshInstance GetTheOtherMeshInstance()
+	{
+		if (mesh_instanceCurrent == mesh_instance1)
+			return mesh_instance2;
+		else
+			return mesh_instance1;
 	}
 
 	public void Apply()
 	{
-		// Generate a mesh instance data:
-		Mesh m = surfaceTool.Commit();
-		mesh_instance.Mesh = m;
-
-		// Remove old collision shape child of the mesh node:
-		if (mesh_instance.GetChildCount() > 0)
-		{
-			Node n = mesh_instance.GetChild(0);
-			if (n != null && n is StaticBody)
-			{
-				mesh_instance.RemoveChild(n);
-				n.QueueFree();
-			}
-		}
-		mesh_instance.CreateTrimeshCollision();
-
+		mesh_instanceCurrent.Visible = false;
+		mesh_instanceCurrent = GetTheOtherMeshInstance();
+		mesh_instanceCurrent.Visible = true;
+		collision.Shape = shape;
+		
 		Translation = prePosition;
 	}
 
@@ -178,6 +204,16 @@ public class Chunk : Spatial
 			count++;
 		}
 		return result;
+	}
+
+	SeamSide GetQuadSeamSide(int quadIndex)
+	{
+		foreach (int i in seamQuads)
+		{
+			if (i == quadIndex)
+				return seamSide;
+		}
+		return SeamSide.NONE;
 	}
 
 	void AddNoise(ref Vector3 vertex)

@@ -15,6 +15,9 @@ const MAX_SLOPE_ANGLE = 40
 var camera
 var cam_rotator
 
+var keepMoving = false
+var input_movement_vector
+
 var MOUSE_SENSITIVITY = 0.05
 
 func _ready():
@@ -36,7 +39,8 @@ func process_input(delta):
 	dir = Vector3()
 	var cam_xform = camera.get_global_transform()
 
-	var input_movement_vector = Vector2()
+	if not keepMoving:
+		input_movement_vector = Vector2()
 
 	if Input.is_action_pressed("move_f"):
 		input_movement_vector.y += 1
@@ -46,7 +50,11 @@ func process_input(delta):
 		input_movement_vector.x -= 1
 	if Input.is_action_pressed("move_r"):
 		input_movement_vector.x += 1
-
+	if Input.is_action_just_pressed("move_shift"):
+		keepMoving = !keepMoving
+	
+	input_movement_vector.x = clamp(input_movement_vector.x, -1, 1);
+	input_movement_vector.y = clamp(input_movement_vector.y, -1, 1);
 	input_movement_vector = input_movement_vector.normalized()
 
 	# Basis vectors are already normalized.
