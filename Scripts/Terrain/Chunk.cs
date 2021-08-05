@@ -9,66 +9,40 @@ public enum SeamSide
 	NONE, TOP, RIGHT, BOTTOM, LEFT
 }
 
-public class Chunk : Spatial
+public class Chunk
 {
-	public Vector2 index;
-	public Vector3 prePosition { get; private set; }
+	public List<Vector3> vertices { get; private set; }
 
-	MeshInstance mesh_instance1;
-	MeshInstance mesh_instance2;
-	CollisionShape collision;
-	ConcavePolygonShape shape;
-	MeshInstance mesh_instanceCurrent;
-	SurfaceTool surfaceTool;
-	OpenSimplexNoise noise;
-	Material material;
-	float size;
+	public Vector2 index;
 	int detail;
 	Quad[] quads;
 	SeamSide seamSide = SeamSide.NONE;
 	int[] seamQuads;
-	bool addCollision;
 
 	Task task;
 
-	public Chunk(OpenSimplexNoise noise, Material material, Vector2 index, float size, int detail, bool addSeams = false)
+	public Chunk(Vector2 index, float size, int detail, bool addSeams)
 	{
-		this.noise = noise;
-		this.material = material;
+		if (detail <= 0)
+		{
+			return;
+		}
 		this.index = index;
-		this.size = size;
-		this.detail = (int)Mathf.Pow(2, detail);
-		this.addCollision = !addSeams;
-		
+		this.detail = detail;
 		if (addSeams)
 			this.seamSide = GetSeamSide();
 		else
 			this.seamSide = SeamSide.NONE;
 
-		surfaceTool = new SurfaceTool();
-		
-		mesh_instance1 = new MeshInstance();
-		mesh_instance1.Visible = true;
-		mesh_instance1.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
-		AddChild(mesh_instance1);
-
-		mesh_instance2 = new MeshInstance();
-		mesh_instance2.Visible = false;
-		mesh_instance2.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
-		AddChild(mesh_instance2);
-
-		StaticBody staticBody = new StaticBody();
-		AddChild(staticBody);
-		collision = new CollisionShape();
-		shape = new ConcavePolygonShape();
-		staticBody.AddChild(collision);
-
-		mesh_instanceCurrent = mesh_instance1;
-
-		InitQuads();
+		vertices = new List<Vector3>();
+		InitQuads(size);
+		foreach (Quad quad in quads)
+		{
+			vertices.AddRange(quad.vertices);
+		}
 	}
 
-	void InitQuads()
+	void InitQuads(float size)
 	{
 		quads = new Quad[detail * detail];
 		seamQuads = GetEdgeQuads();
@@ -86,7 +60,10 @@ public class Chunk : Spatial
 				// The quad which is at index x = 1, index z = 2 has coords:
 				// X = (meshCenter - meshHalfSize + quadHalfSize + 1 quadFullSize) by X axis  
 				// Z = (meshCenter - meshHalfSize + quadHalfSize + 2 quadFullSize) by Z axis
-				center = new Vector3(
+				center =
+					new Vector3(index.x * size, 0, index.y * size)
+					+
+					new Vector3(
 					(size * -0.5f + quadHalfSize) + x * (quadHalfSize * 2f),
 					0,
 					(size * -0.5f + quadHalfSize) + z * (quadHalfSize * 2f));
@@ -96,18 +73,6 @@ public class Chunk : Spatial
 		}
 	}
 
-	public void Prepair(float x, float z)
-	{
-		prePosition = new Vector3(index.x * size + x, 0, index.y * size + z);
-		Generate();
-	}
-
-	public void PrepairAsync(float x, float z)
-	{
-		prePosition = new Vector3(index.x * size + x, 0, index.y * size + z);
-		task = Task.Run(Generate);
-	}
-	
 	SeamSide GetSeamSide()
 	{
 		if (index == Vector2.Up)
@@ -119,72 +84,6 @@ public class Chunk : Spatial
 		else if (index == Vector2.Left)
 			return SeamSide.RIGHT;
 		else return SeamSide.NONE;
-	}
-
-	// Create a mesh from quads. Each quad is made of 4 triangles (as splitted by 2 diagonal lines).
-	void Generate()
-	{
-		if (detail <= 0)
-		{
-			return;
-		}
-
-		surfaceTool.Begin(Mesh.PrimitiveType.Triangles);
-
-		foreach (Quad quad in quads)
-		{
-			for (int v = 0; v < quad.vertices.Length; v++)
-			{
-				AddNoise(ref quad.vertices[v]);
-				surfaceTool.AddVertex(quad.vertices[v]);
-			}
-		}
-		
-		surfaceTool.SetMaterial(material);
-		surfaceTool.GenerateNormals();
-
-		// Generate a mesh instance data:
-		GetTheOtherMeshInstance().Mesh = surfaceTool.Commit();
-		if (addCollision)
-		{
-			SetCollisionShape(GetTheOtherMeshInstance().Mesh);
-			// VERY SLOW STUFF: // AND CAUSES MEMEORY LEAK!!!
-			//shape = GetTheOtherMeshInstance().Mesh.CreateTrimeshShape();
-		}
-
-		surfaceTool.Clear();
-		seamQuads = null;
-	}
-
-	MeshInstance GetTheOtherMeshInstance()
-	{
-		if (mesh_instanceCurrent == mesh_instance1)
-			return mesh_instance2;
-		else
-			return mesh_instance1;
-	}
-	
-	void SetCollisionShape(Mesh mesh)
-	{
-		Vector3[] faces = mesh.GetFaces();
-		Vector3[] facePoints = new Vector3[faces.Length * 3];
-		for (int i = 0; i < faces.Length; i++)
-		{
-			facePoints[i * 3] = faces[i][0];
-			facePoints[i * 3 + 1] = faces[i][1];
-			facePoints[i * 3 + 2] = faces[i][2];
-		}
-		shape.SetFaces(facePoints);
-	}
-
-	public void Apply()
-	{
-		mesh_instanceCurrent.Visible = false;
-		mesh_instanceCurrent = GetTheOtherMeshInstance();
-		mesh_instanceCurrent.Visible = true;
-		collision.Shape = shape;
-		
-		Translation = prePosition;
 	}
 
 	int[] GetEdgeQuads()
@@ -231,10 +130,5 @@ public class Chunk : Spatial
 				return seamSide;
 		}
 		return SeamSide.NONE;
-	}
-
-	void AddNoise(ref Vector3 vertex)
-	{
-		vertex.y = noise.GetNoise2d(vertex.x + prePosition.x, vertex.z + prePosition.z) * 80f;
 	}
 }

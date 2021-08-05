@@ -6,7 +6,7 @@ using System.Collections.Generic;
 public class World : Spatial
 {
 	float originSize = 300.0f;
-	int detail = 7;
+	int detail = 50;
 	int ringsAmount = 5;
 	
 	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
@@ -36,8 +36,9 @@ public class World : Spatial
 
 		noise = new OpenSimplexNoise();
 		noise.Seed = (int)OS.GetUnixTime();
-		noise.Octaves = 4;
-		noise.Period = 300;
+		noise.Octaves = 8;
+		noise.Persistence = 0.5f;
+		noise.Period = 200;
 
 		thread = new Thread();
 		
@@ -49,12 +50,11 @@ public class World : Spatial
 			// where T1 is 1st term, ratio is the progression ratio.
 			float size = originSize * (float)Mathf.Pow(3, i - 1);
 			
-			Ring ring = new Ring(i, noise, material, size, detail);
+			Ring ring = new Ring(i, noise, material, size, detail, i < 2);
+			ring.ShiftProcess(0, 0);
+			ring.ShiftApply();
 			rings.Add(ring);
-			foreach(Chunk c in ring.chunks)
-			{
-				AddChild(c);
-			}
+			AddChild(ring);
 		}
 		
 		Player = GetNode("Player") as Spatial;

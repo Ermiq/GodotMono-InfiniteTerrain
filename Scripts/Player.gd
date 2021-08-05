@@ -3,7 +3,8 @@ extends KinematicBody
 const GRAVITY = -24.8
 export var use_gravity : bool = false
 var vel = Vector3()
-const MAX_SPEED = 20
+const MIN_SPEED = 1
+const MAX_SPEED = 300
 const JUMP_SPEED = 18
 const ACCEL = 4.5
 
@@ -15,6 +16,7 @@ const MAX_SLOPE_ANGLE = 40
 var camera
 var cam_rotator
 
+var current_speed = 20
 var keepMoving = false
 var input_movement_vector
 
@@ -91,7 +93,7 @@ func process_movement(delta):
 	hvel.y = 0
 
 	var target = dir
-	target *= MAX_SPEED
+	target *= current_speed
 
 	var accel
 	if dir.dot(hvel) > 0:
@@ -112,3 +114,9 @@ func _input(event):
 		var camera_rot = cam_rotator.rotation_degrees
 		camera_rot.x = clamp(camera_rot.x, -70, 70)
 		cam_rotator.rotation_degrees = camera_rot
+	
+	if event.is_action_pressed("scroll_f"):
+		current_speed = min(MAX_SPEED, current_speed + current_speed * 0.1)
+	
+	if event.is_action_pressed("scroll_b"):
+		current_speed = max(MIN_SPEED, current_speed - current_speed * 0.1)
