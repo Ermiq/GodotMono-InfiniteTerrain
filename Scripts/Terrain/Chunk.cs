@@ -9,40 +9,68 @@ public enum SeamSide
 	NONE, TOP, RIGHT, BOTTOM, LEFT
 }
 
-public class Chunk
+public class Chunk : Spatial
 {
-	public List<Vector3> vertices { get; private set; }
-
 	public Vector2 index;
+	public Vector3 prePosition { get; private set; }
+
+	MeshInstance mesh_instance1;
+	MeshInstance mesh_instance2;
+	CollisionShape collision;
+	ConcavePolygonShape shape1;
+	ConcavePolygonShape shape2;
+	MeshInstance mesh_instanceCurrent;
+	SurfaceTool surfaceTool;
+	OpenSimplexNoise noise;
+	Material material;
+	float size;
 	int detail;
 	Quad[] quads;
 	SeamSide seamSide = SeamSide.NONE;
 	int[] seamQuads;
+	bool addCollision;
 
 	Task task;
 
-	public Chunk(Vector2 index, float size, int detail, bool addSeams)
+	public Chunk(OpenSimplexNoise noise, Material material, Vector2 index, float size, int detail, bool addCollision = false)
 	{
-		if (detail <= 0)
-		{
-			return;
-		}
+		this.noise = noise;
+		this.material = material;
 		this.index = index;
-		this.detail = detail;
-		if (addSeams)
+		this.size = size;
+		this.detail = detail;// (int)Mathf.Pow(2, detail);
+		this.addCollision = addCollision;
+		
+		if (!addCollision)
 			this.seamSide = GetSeamSide();
 		else
 			this.seamSide = SeamSide.NONE;
 
-		vertices = new List<Vector3>();
-		InitQuads(size);
-		foreach (Quad quad in quads)
-		{
-			vertices.AddRange(quad.vertices);
-		}
+		surfaceTool = new SurfaceTool();
+		
+		mesh_instance1 = new MeshInstance();
+		mesh_instance1.Visible = true;
+		mesh_instance1.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
+		AddChild(mesh_instance1);
+
+		mesh_instance2 = new MeshInstance();
+		mesh_instance2.Visible = false;
+		mesh_instance2.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
+		AddChild(mesh_instance2);
+
+		StaticBody staticBody = new StaticBody();
+		AddChild(staticBody);
+		collision = new CollisionShape();
+		shape1 = new ConcavePolygonShape();
+		shape2 = new ConcavePolygonShape();
+		staticBody.AddChild(collision);
+
+		mesh_instanceCurrent = mesh_instance1;
+
+		InitQuads();
 	}
 
-	void InitQuads(float size)
+	void InitQuads()
 	{
 		quads = new Quad[detail * detail];
 		seamQuads = GetEdgeQuads();
@@ -60,10 +88,7 @@ public class Chunk
 				// The quad which is at index x = 1, index z = 2 has coords:
 				// X = (meshCenter - meshHalfSize + quadHalfSize + 1 quadFullSize) by X axis  
 				// Z = (meshCenter - meshHalfSize + quadHalfSize + 2 quadFullSize) by Z axis
-				center =
-					new Vector3(index.x * size, 0, index.y * size)
-					+
-					new Vector3(
+				center = new Vector3(
 					(size * -0.5f + quadHalfSize) + x * (quadHalfSize * 2f),
 					0,
 					(size * -0.5f + quadHalfSize) + z * (quadHalfSize * 2f));
@@ -73,6 +98,18 @@ public class Chunk
 		}
 	}
 
+	public void Prepair(float x, float z)
+	{
+		prePosition = new Vector3(index.x * size + x, 0, index.y * size + z);
+		Generate();
+	}
+
+	public void PrepairAsync(float x, float z)
+	{
+		prePosition = new Vector3(index.x * size + x, 0, index.y * size + z);
+		task = Task.Run(Generate);
+	}
+	
 	SeamSide GetSeamSide()
 	{
 		if (index == Vector2.Up)
@@ -84,6 +121,66 @@ public class Chunk
 		else if (index == Vector2.Left)
 			return SeamSide.RIGHT;
 		else return SeamSide.NONE;
+	}
+
+	// Create a mesh from quads. Each quad is made of 4 triangles (as splitted by 2 diagonal lines).
+	void Generate()
+	{
+		if (detail <= 0)
+		{
+			return;
+		}
+
+		surfaceTool.Begin(Mesh.PrimitiveType.Triangles);
+		surfaceTool.AddSmoothGroup(addCollision);
+
+		foreach (Quad quad in quads)
+		{
+			for (int v = 0; v < quad.vertices.Length; v++)
+			{
+				AddNoise(ref quad.vertices[v]);
+				surfaceTool.AddVertex(quad.vertices[v]);
+			}
+		}
+		
+		surfaceTool.SetMaterial(material);
+		surfaceTool.GenerateNormals();
+
+		// Generate a mesh instance data:
+		GetTheOtherMeshInstance().Mesh = surfaceTool.Commit();
+		if (addCollision)
+		{
+			GetTheOtherShape().Data = GetTheOtherMeshInstance().Mesh.GetFaces();
+		}
+
+		surfaceTool.Clear();
+		seamQuads = null;
+	}
+
+	MeshInstance GetTheOtherMeshInstance()
+	{
+		if (mesh_instanceCurrent == mesh_instance1)
+			return mesh_instance2;
+		else
+			return mesh_instance1;
+	}
+
+	ConcavePolygonShape GetTheOtherShape()
+	{
+		if (mesh_instanceCurrent == mesh_instance1)
+			return shape2;
+		else
+			return shape1;
+	}
+
+	public void Apply()
+	{
+		collision.Shape = GetTheOtherShape();
+		mesh_instanceCurrent.Visible = false;
+		mesh_instanceCurrent = GetTheOtherMeshInstance();
+		mesh_instanceCurrent.Visible = true;
+		
+		Translation = prePosition;
 	}
 
 	int[] GetEdgeQuads()
@@ -130,5 +227,10 @@ public class Chunk
 				return seamSide;
 		}
 		return SeamSide.NONE;
+	}
+
+	void AddNoise(ref Vector3 vertex)
+	{
+		vertex.y = noise.GetNoise2d(vertex.x + prePosition.x, vertex.z + prePosition.z) * 1000f;
 	}
 }

@@ -4,7 +4,7 @@ const GRAVITY = -24.8
 export var use_gravity : bool = false
 var vel = Vector3()
 const MIN_SPEED = 1
-const MAX_SPEED = 300
+const MAX_SPEED = 1000
 const JUMP_SPEED = 18
 const ACCEL = 4.5
 
@@ -117,6 +117,8 @@ func _input(event):
 	
 	if event.is_action_pressed("scroll_f"):
 		current_speed = min(MAX_SPEED, current_speed + current_speed * 0.1)
+		print("Speed: " + str(current_speed))
 	
 	if event.is_action_pressed("scroll_b"):
 		current_speed = max(MIN_SPEED, current_speed - current_speed * 0.1)
+		print("Speed: " + str(current_speed))
