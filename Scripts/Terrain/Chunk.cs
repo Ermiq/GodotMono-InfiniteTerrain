@@ -146,8 +146,11 @@ public class Chunk : Spatial
 		// Generate a mesh instance data:
 		GetTheOtherMeshInstance().Mesh = surfaceTool.Commit();
 		if (addCollision)
+		{
+			SetCollisionShape(GetTheOtherMeshInstance().Mesh);
 			// VERY SLOW STUFF: // AND CAUSES MEMEORY LEAK!!!
-			shape = GetTheOtherMeshInstance().Mesh.CreateTrimeshShape();
+			//shape = GetTheOtherMeshInstance().Mesh.CreateTrimeshShape();
+		}
 
 		surfaceTool.Clear();
 		seamQuads = null;
@@ -161,9 +164,9 @@ public class Chunk : Spatial
 			return mesh_instance1;
 	}
 	
-	void SetCollisionShape()
+	void SetCollisionShape(Mesh mesh)
 	{
-		Vector3[] faces = GetTheOtherMesh().GetFaces();
+		Vector3[] faces = mesh.GetFaces();
 		Vector3[] facePoints = new Vector3[faces.Length * 3];
 		for (int i = 0; i < faces.Length; i++)
 		{
@@ -171,7 +174,7 @@ public class Chunk : Spatial
 			facePoints[i * 3 + 1] = faces[i][1];
 			facePoints[i * 3 + 2] = faces[i][2];
 		}
-		shape.SetFace
+		shape.SetFaces(facePoints);
 	}
 
 	public void Apply()
