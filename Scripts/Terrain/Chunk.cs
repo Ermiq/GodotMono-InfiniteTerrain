@@ -17,7 +17,7 @@ public class Chunk : Spatial
 	MeshInstance mesh_instance1;
 	MeshInstance mesh_instance2;
 	CollisionShape collision;
-	Shape shape;
+	ConcavePolygonShape shape;
 	MeshInstance mesh_instanceCurrent;
 	SurfaceTool surfaceTool;
 	OpenSimplexNoise noise;
@@ -60,6 +60,7 @@ public class Chunk : Spatial
 		StaticBody staticBody = new StaticBody();
 		AddChild(staticBody);
 		collision = new CollisionShape();
+		shape = new ConcavePolygonShape();
 		staticBody.AddChild(collision);
 
 		mesh_instanceCurrent = mesh_instance1;
@@ -158,6 +159,19 @@ public class Chunk : Spatial
 			return mesh_instance2;
 		else
 			return mesh_instance1;
+	}
+	
+	void SetCollisionShape()
+	{
+		Vector3[] faces = GetTheOtherMesh().GetFaces();
+		Vector3[] facePoints = new Vector3[faces.Length * 3];
+		for (int i = 0; i < faces.Length; i++)
+		{
+			facePoints[i * 3] = faces[i][0];
+			facePoints[i * 3 + 1] = faces[i][1];
+			facePoints[i * 3 + 2] = faces[i][2];
+		}
+		shape.SetFace
 	}
 
 	public void Apply()
