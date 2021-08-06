@@ -34,6 +34,7 @@ public class Chunk : Spatial
 
 	public Chunk(OpenSimplexNoise noise, Material material, Vector2 index, float size, int detail, bool addCollision = false)
 	{
+		
 		this.noise = noise;
 		this.material = material;
 		this.index = index;
@@ -50,12 +51,10 @@ public class Chunk : Spatial
 		
 		mesh_instance1 = new MeshInstance();
 		mesh_instance1.Visible = true;
-		mesh_instance1.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
 		AddChild(mesh_instance1);
 
 		mesh_instance2 = new MeshInstance();
 		mesh_instance2.Visible = false;
-		mesh_instance2.CastShadow = GeometryInstance.ShadowCastingSetting.DoubleSided;
 		AddChild(mesh_instance2);
 
 		StaticBody staticBody = new StaticBody();
@@ -207,7 +206,7 @@ public class Chunk : Spatial
 				break;
 			case SeamSide.LEFT:
 				start = 0;
-				end = detail * detail - detail;
+				end = detail * detail - detail + 1;
 				step = detail;
 				break;
 		}
@@ -234,8 +233,10 @@ public class Chunk : Spatial
 		if (noise == null)
 			return;
 		vertex.y = noise.GetNoise2d(vertex.x + prePosition.x, vertex.z + prePosition.z);
-		vertex.y *= vertex.y < 0.5f ? Mathf.Pow(vertex.y * 2, 2) / 2f : 1 - (Mathf.Pow((1 - vertex.y) * 2, 2) / 2f);
-		vertex.y += 0.01f;
+		if (vertex.y > 0)
+			vertex.y = Mathf.Pow(vertex.y * 2f, 2);
+		//vertex.y *= vertex.y < 0.5f ? Mathf.Pow(vertex.y * 2f, 2) / 2f : 1 - (Mathf.Pow((1f - vertex.y) * 2f, 2) / 2f);
+		//vertex.y += 0.01f;
 		vertex.y *= 1000f;
 	}
 }

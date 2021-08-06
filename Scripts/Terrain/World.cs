@@ -36,10 +36,10 @@ public class World : Spatial
 
 		noise = new OpenSimplexNoise();
 		noise.Seed = (int)OS.GetUnixTime();
-		noise.Octaves = 5;
+		noise.Octaves = 4;
 		noise.Persistence = 0.2f;
-		noise.Period = 2000;
-		noise.Lacunarity = 3f;
+		noise.Period = 5000;
+		noise.Lacunarity = 4f;
 
 		thread = new Thread();
 		
