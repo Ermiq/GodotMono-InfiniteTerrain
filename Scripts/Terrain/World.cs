@@ -15,17 +15,17 @@ public class World : Spatial
 
 	Spatial Player;
 	Spatial FlyCam;
+	Spatial currentPlayer;
+	bool doUpdate = true;
 
 	OpenSimplexNoise noise;
 	List<Ring> rings = new List<Ring>();
 
-	int playerPosX, playerPosZ;
-	int playerPosXPrevious, playerPosZPrevious;
+	Vector3 playerPreviousPosition;
 	float offsetX, offsetZ;
 
 	Thread thread;
-	int ringInProcess;
-
+	
 	public override void _Ready()
 	{
 		base._Ready();
@@ -37,8 +37,9 @@ public class World : Spatial
 		noise = new OpenSimplexNoise();
 		noise.Seed = (int)OS.GetUnixTime();
 		noise.Octaves = 5;
-		noise.Persistence = 0.4f;
-		noise.Period = 4000;
+		noise.Persistence = 0.2f;
+		noise.Period = 2000;
+		noise.Lacunarity = 3f;
 
 		thread = new Thread();
 		
@@ -59,6 +60,7 @@ public class World : Spatial
 		}
 		
 		Player = GetNode("Player") as Spatial;
+		currentPlayer = Player;
 	}
 
 	public override void _Process(float delta)
@@ -71,9 +73,14 @@ public class World : Spatial
 			vp.DebugDraw = vp.DebugDraw == Viewport.DebugDrawEnum.Wireframe ? Viewport.DebugDrawEnum.Disabled : Viewport.DebugDrawEnum.Wireframe;
 		}
 
+		if (Input.IsActionJustPressed("ui_left"))
+		{
+			doUpdate = !doUpdate;
+		}
+
 		if (Input.IsActionJustPressed("ui_down"))
 		{
-			if (Player != null)
+			if (currentPlayer == Player)
 			{
 				Vector3 pos = Player.Translation;
 				RemoveChild(Player);
@@ -81,6 +88,7 @@ public class World : Spatial
 				FlyCam = FlyCamScene.Instance() as Spatial;
 				FlyCam.Translation = pos;
 				AddChild(FlyCam);
+				currentPlayer = FlyCam;
 			}
 			else
 			{
@@ -90,6 +98,7 @@ public class World : Spatial
 				Player = PlayerScene.Instance() as Spatial;
 				Player.Translation = pos;
 				AddChild(Player);
+				currentPlayer = Player;
 			}
 		}
 
@@ -98,22 +107,17 @@ public class World : Spatial
 
 	void GetPlayerPosIndex()
 	{
-		if (Player == null)
+		if (!doUpdate)
 		{
 			return;
 		}
-		Vector3 player_translation = Player.Translation;
-		player_translation.x += player_translation.x > 0 ? originSize * 0.5f : originSize * -0.5f;
-		player_translation.z += player_translation.z > 0 ? originSize * 0.5f : originSize * -0.5f;
-		playerPosX = (int)(player_translation.x / originSize);
-		playerPosZ = (int)(player_translation.z / originSize);
-		if (playerPosX != playerPosXPrevious || playerPosZ != playerPosZPrevious)
+		Vector3 player_translation = currentPlayer.Translation;
+		if (player_translation.DistanceSquaredTo(playerPreviousPosition) > Mathf.Pow(originSize * 0.5f, 2))
 		{
-			offsetX = playerPosX * originSize;
-			offsetZ = playerPosZ * originSize;
+			offsetX = player_translation.x;
+			offsetZ = player_translation.z;
 			UpdateRings();
-			playerPosXPrevious = playerPosX;
-			playerPosZPrevious = playerPosZ;
+			playerPreviousPosition = player_translation;
 		}
 	}
 

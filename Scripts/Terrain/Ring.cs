@@ -6,9 +6,11 @@ public class Ring
 {
 	public Chunk[] chunks;
 
+	Material waterMaterial = ResourceLoader.Load("res://Water.material") as Material;
+
 	public Ring(int index, OpenSimplexNoise noise, Material material, float size, int detail, bool addCollision)
 	{
-		chunks = new Chunk[index == 1 ? 1 : 8];
+		chunks = new Chunk[index == 1 ? 2 : 9];
 		
 		if (index == 1)
 		{
@@ -17,6 +19,11 @@ public class Ring
 			chunk.Translation = chunk.prePosition;
 			chunk.Apply();
 			chunks[0] = chunk;
+			Chunk chunk2 = new Chunk(null, waterMaterial, Vector2.Zero, size * 3, 10, false);
+			chunk2.Prepair(0, 0);
+			chunk2.Translation = chunk2.prePosition;
+			chunk2.Apply();
+			chunks[1] = chunk2;
 		}
 		else
 		{
@@ -35,6 +42,11 @@ public class Ring
 					count++;
 				}
 			}
+			Chunk chunk2 = new Chunk(null, waterMaterial, Vector2.Zero, size * 3, 10, false);
+			chunk2.Prepair(0, 0);
+			chunk2.Translation = chunk2.prePosition;
+			chunk2.Apply();
+			chunks[count] = chunk2;
 		}
 	}
 

@@ -132,7 +132,7 @@ public class Chunk : Spatial
 		}
 
 		surfaceTool.Begin(Mesh.PrimitiveType.Triangles);
-		surfaceTool.AddSmoothGroup(addCollision);
+		surfaceTool.AddSmoothGroup(true);//(addCollision);
 
 		foreach (Quad quad in quads)
 		{
@@ -231,6 +231,11 @@ public class Chunk : Spatial
 
 	void AddNoise(ref Vector3 vertex)
 	{
-		vertex.y = noise.GetNoise2d(vertex.x + prePosition.x, vertex.z + prePosition.z) * 1000f;
+		if (noise == null)
+			return;
+		vertex.y = noise.GetNoise2d(vertex.x + prePosition.x, vertex.z + prePosition.z);
+		vertex.y *= vertex.y < 0.5f ? Mathf.Pow(vertex.y * 2, 2) / 2f : 1 - (Mathf.Pow((1 - vertex.y) * 2, 2) / 2f);
+		vertex.y += 0.01f;
+		vertex.y *= 1000f;
 	}
 }

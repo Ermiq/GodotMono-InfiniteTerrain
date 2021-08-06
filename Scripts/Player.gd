@@ -117,8 +117,8 @@ func _input(event):
 	
 	if event.is_action_pressed("scroll_f"):
 		current_speed = min(MAX_SPEED, current_speed + current_speed * 0.1)
-		print("Speed: " + str(current_speed))
+		print("Speed: " + str(current_speed) + "m/s (" + str(current_speed * 60 * 60 / 1000) + " km/h).")
 	
 	if event.is_action_pressed("scroll_b"):
 		current_speed = max(MIN_SPEED, current_speed - current_speed * 0.1)
-		print("Speed: " + str(current_speed))
+		print("Speed: " + str(current_speed) + "m/s (" + str(current_speed * 60 * 60 / 1000) + " km/h).")
