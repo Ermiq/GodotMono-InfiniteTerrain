@@ -9,10 +9,10 @@ public enum SeamSide
 	NONE, TOP, RIGHT, BOTTOM, LEFT
 }
 
-public class Chunk : Spatial
+public class Chunk : Node
 {
 	public Vector2 index;
-	public Vector3 prePosition { get; private set; }
+	public Vector3 position { get; private set; }
 
 	MeshInstance mesh_instance1;
 	MeshInstance mesh_instance2;
@@ -39,7 +39,7 @@ public class Chunk : Spatial
 		this.material = material;
 		this.index = index;
 		this.size = size;
-		this.detail = detail;// (int)Mathf.Pow(2, detail);
+		this.detail = detail;
 		this.addCollision = addCollision;
 		
 		if (!addCollision)
@@ -71,6 +71,7 @@ public class Chunk : Spatial
 
 	void InitQuads()
 	{
+		position = new Vector3(index.x * (size * sizeModifier), 0, index.y * (size * sizeModifier));
 		quads = new Quad[detail * detail];
 		seamQuads = GetEdgeQuads();
 		
@@ -87,7 +88,7 @@ public class Chunk : Spatial
 				// The quad which is at index x = 1, index z = 2 has coords:
 				// X = (meshCenter - meshHalfSize + quadHalfSize + 1 quadFullSize) by X axis  
 				// Z = (meshCenter - meshHalfSize + quadHalfSize + 2 quadFullSize) by Z axis
-				center = new Vector3(
+				center = position + new Vector3(
 					(size * sizeModifier * -0.5f + quadHalfSize) + x * (quadHalfSize * 2f),
 					0,
 					(size * sizeModifier * -0.5f + quadHalfSize) + z * (quadHalfSize * 2f));
@@ -97,21 +98,14 @@ public class Chunk : Spatial
 		}
 	}
 
-	public void Prepair(float x, float y, float z)
+	public void Prepair(float offsetX = 0, float offsetY = 1, float offsetZ = 0)
 	{
-		if (sizeModifier != y)
+		if (sizeModifier != offsetY)
 		{
-			sizeModifier = y;
+			sizeModifier = offsetY;
 			InitQuads();
 		}
-		prePosition = new Vector3(index.x * (size * sizeModifier) + x, 0, index.y * (size * sizeModifier) + z);
-		Generate();
-	}
-
-	public void PrepairAsync(float x, float z)
-	{
-		prePosition = new Vector3(index.x * size + x, 0, index.y * size + z);
-		task = Task.Run(Generate);
+		Generate(offsetX, offsetZ);
 	}
 
 	SeamSide GetSeamSide()
@@ -128,7 +122,7 @@ public class Chunk : Spatial
 	}
 
 	// Create a mesh from quads. Each quad is made of 4 triangles (as splitted by 2 diagonal lines).
-	void Generate()
+	void Generate(float offsetX, float offsetZ)
 	{
 		if (detail <= 0)
 		{
@@ -142,8 +136,10 @@ public class Chunk : Spatial
 		{
 			for (int v = 0; v < quad.vertices.Length; v++)
 			{
-				AddNoise(ref quad.vertices[v]);
-				surfaceTool.AddVertex(quad.vertices[v]);
+				Vector3 vertex = quad.vertices[v];
+				vertex += Vector3.Right * offsetX  + Vector3.Back * offsetZ;
+				AddNoise(ref vertex);
+				surfaceTool.AddVertex(vertex);
 			}
 		}
 		
@@ -182,8 +178,6 @@ public class Chunk : Spatial
 		mesh_instanceCurrent.Visible = false;
 		mesh_instanceCurrent = GetTheOtherMeshInstance();
 		mesh_instanceCurrent.Visible = true;
-		
-		Translation = prePosition;
 	}
 
 	int[] GetEdgeQuads()
@@ -237,11 +231,13 @@ public class Chunk : Spatial
 		if (noise == null)
 			return;
 		
-		vertex.y = noise.GetNoise2d(vertex.x + prePosition.x, vertex.z + prePosition.z);
-		if (vertex.y > 0)
-			vertex.y = Mathf.Pow(vertex.y * 2f, 2);
+		float n = noise.GetNoise3d(vertex.x, vertex.y, vertex.z);
+		if (n > 0)
+			n = Mathf.Pow(n * 2f, 2);
+		vertex.y = n * 5000f;
 		//vertex.y *= vertex.y < 0.5f ? Mathf.Pow(vertex.y * 2f, 2) / 2f : 1 - (Mathf.Pow((1f - vertex.y) * 2f, 2) / 2f);
-		//vertex.y += 0.01f;
-		vertex.y *= 3000f;
+		
+		//vertex.y = 100000f;
+		//vertex = vertex.Normalized() * (-n * 500f + 2000f);
 	}
 }

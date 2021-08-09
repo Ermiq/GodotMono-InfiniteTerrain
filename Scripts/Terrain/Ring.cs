@@ -13,8 +13,7 @@ public class Ring
 		if (index == 1)
 		{
 			Chunk chunk = new Chunk(noise, material, Vector2.Zero, size * 3, detail * 3, addCollision);
-			chunk.Prepair(0, 0, 0);
-			chunk.Translation = chunk.prePosition;
+			chunk.Prepair();
 			chunk.Apply();
 			chunks[0] = chunk;
 		}
@@ -28,8 +27,7 @@ public class Ring
 					if (j == 0 && k == 0)
 						continue;
 					Chunk chunk = new Chunk(noise, material, new Vector2(j, k), size, detail, addCollision);
-					chunk.Prepair(0, 0, 0);
-					chunk.Translation = chunk.prePosition;
+					chunk.Prepair();
 					chunk.Apply();
 					chunks[count] = chunk;
 					count++;

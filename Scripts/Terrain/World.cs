@@ -38,8 +38,8 @@ public class World : Spatial
 		noise = new OpenSimplexNoise();
 		noise.Seed = (int)OS.GetUnixTime();
 		noise.Octaves = 9;
-		noise.Persistence = 0.2f;
-		noise.Period = 10000;
+		noise.Persistence = 0.25f;
+		noise.Period = 100000;
 		noise.Lacunarity = 4f;
 
 		thread = new Thread();
@@ -49,9 +49,12 @@ public class World : Spatial
 		// Rings start from 1 and up to 'ringsAmount' inclusive.
 		for (int i = 1; i <= ringsAmount; i++)
 		{
-			// The formula of n-th term in a geometric progression:
+			// Each ring from the center has size of chunk increased by 3 from the previous ring.
+			// Using the geometric progression formula we find the size of a chunk:
 			// Tn = T1 * ratio^(n - 1)
-			// where T1 is 1st term, ratio is the progression ratio.
+			// where T1 is 1st chunk size,
+			// ratio is the progression ratio (3 in our case),
+			// n (Tn) is the ring index (and the size of its chunks) we need to find:
 			float size = originalSize * (float)Mathf.Pow(3, i - 1);
 			
 			Ring ring = new Ring(i, noise, material, size, detail, i == 1);
@@ -63,7 +66,7 @@ public class World : Spatial
 			}
 		}
 		
-		Player = GetNode("Player") as Spatial;
+		Player = GetParent().GetNode("Player") as Spatial;
 		currentPlayer = Player;
 	}
 
@@ -87,21 +90,21 @@ public class World : Spatial
 			if (currentPlayer == Player)
 			{
 				Vector3 pos = Player.Translation;
-				RemoveChild(Player);
+				GetParent().RemoveChild(Player);
 				Player = null;
 				FlyCam = FlyCamScene.Instance() as Spatial;
 				FlyCam.Translation = pos;
-				AddChild(FlyCam);
+				GetParent().AddChild(FlyCam);
 				currentPlayer = FlyCam;
 			}
 			else
 			{
 				Vector3 pos = FlyCam.Translation;
-				RemoveChild(FlyCam);
+				GetParent().RemoveChild(FlyCam);
 				FlyCam = null;
 				Player = PlayerScene.Instance() as Spatial;
 				Player.Translation = pos;
-				AddChild(Player);
+				GetParent().AddChild(Player);
 				currentPlayer = Player;
 			}
 		}
