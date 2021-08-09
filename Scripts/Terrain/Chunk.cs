@@ -142,7 +142,7 @@ public class Chunk : Node
 				surfaceTool.AddVertex(vertex);
 			}
 		}
-		
+
 		surfaceTool.SetMaterial(material);
 		surfaceTool.GenerateNormals();
 
@@ -233,8 +233,8 @@ public class Chunk : Node
 		
 		float n = noise.GetNoise3d(vertex.x, vertex.y, vertex.z);
 		if (n > 0)
-			n = Mathf.Pow(n * 2f, 2);
-		vertex.y = n * 5000f;
+			n = Mathf.Pow(n, 2) * 1.5f;
+		vertex.y = n * 3000f;
 		//vertex.y *= vertex.y < 0.5f ? Mathf.Pow(vertex.y * 2f, 2) / 2f : 1 - (Mathf.Pow((1f - vertex.y) * 2f, 2) / 2f);
 		
 		//vertex.y = 100000f;

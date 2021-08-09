@@ -5,3 +5,9 @@
 [resource]
 background_mode = 2
 background_sky = SubResource( 1 )
+fog_depth_begin = 1000.0
+fog_depth_end = 8000.0
+fog_depth_curve = 3.0
+fog_transmit_enabled = true
+dof_blur_far_enabled = true
+dof_blur_far_distance = 2000.0

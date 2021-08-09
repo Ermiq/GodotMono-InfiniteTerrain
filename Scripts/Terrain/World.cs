@@ -5,19 +5,18 @@ using System.Collections.Generic;
 
 public class World : Spatial
 {
-	float originalSize = 500.0f;
-	float adjustedSize;
-	int detail = 40;
+	float originalSize = 300.0f;
+	int detail = 30;
 	int ringsAmount = 5;
+	bool doUpdate = true;
 	
 	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
 	PackedScene FlyCamScene = ResourceLoader.Load("res://Scenes/FlyCam.tscn") as PackedScene;
-	Material material = ResourceLoader.Load("res://Terrain.material") as Material;
-
 	Spatial Player;
 	Spatial FlyCam;
 	Spatial currentPlayer;
-	bool doUpdate = true;
+	
+	Material material = ResourceLoader.Load("res://Terrain.material") as Material;
 
 	OpenSimplexNoise noise;
 	List<Ring> rings = new List<Ring>();
@@ -39,12 +38,10 @@ public class World : Spatial
 		noise.Seed = (int)OS.GetUnixTime();
 		noise.Octaves = 9;
 		noise.Persistence = 0.25f;
-		noise.Period = 100000;
+		noise.Period = 5000;
 		noise.Lacunarity = 4f;
 
 		thread = new Thread();
-
-		adjustedSize = originalSize;
 		
 		// Rings start from 1 and up to 'ringsAmount' inclusive.
 		for (int i = 1; i <= ringsAmount; i++)
@@ -112,30 +109,30 @@ public class World : Spatial
 		GetPlayerPosIndex();
 	}
 
-	int indexX, indexY, indexZ;
 	void GetPlayerPosIndex()
 	{
 		if (!doUpdate)
 			return;
 
 		Vector3 player_translation = currentPlayer.Translation;
-		indexY = Mathf.FloorToInt(player_translation.y / 5000f);
-		indexY = Mathf.Clamp(indexY, 1, indexY);
-		indexX = Mathf.FloorToInt(player_translation.x / (originalSize * indexY));
-		indexZ = Mathf.FloorToInt(player_translation.z / (originalSize * indexY));
+		Vector3 index;
+		index.y = Mathf.FloorToInt(player_translation.y / 5000f);
+		index.y = Mathf.Clamp(index.y, 1, index.y);
+		index.x = Mathf.FloorToInt(player_translation.x / (originalSize * index.y));
+		index.z = Mathf.FloorToInt(player_translation.z / (originalSize * index.y));
 		
-		if (playerPreviousPosition.x != indexX || playerPreviousPosition.y != indexY || playerPreviousPosition.z != indexZ)
+		if (playerPreviousPosition != index)
 		{
 			if (thread.IsActive())
 				return;
-			offsetX = indexX * (originalSize * indexY) + (originalSize * indexY * 0.5f);
-			offsetY = indexY;
+			offsetX = index.x * (originalSize * index.y) + (originalSize * index.y * 0.5f);
+			offsetZ = index.z * (originalSize * index.y) + (originalSize * index.y * 0.5f);
+			offsetY = index.y;
 			if (offsetY != 1) offsetY *= 1.5f;
-			offsetZ = indexZ * (originalSize * indexY) + (originalSize * indexY * 0.5f);
 			
-			playerPreviousPosition.x = indexX;
-			playerPreviousPosition.y = indexY;
-			playerPreviousPosition.z = indexZ;
+			playerPreviousPosition.x = index.x;
+			playerPreviousPosition.y = index.y;
+			playerPreviousPosition.z = index.z;
 			UpdateRings();
 		}
 	}
