@@ -6,24 +6,17 @@ public class Ring
 {
 	public Chunk[] chunks;
 
-	Material waterMaterial = ResourceLoader.Load("res://Water.material") as Material;
-
 	public Ring(int index, OpenSimplexNoise noise, Material material, float size, int detail, bool addCollision)
 	{
-		chunks = new Chunk[index == 1 ? 2 : 9];
+		chunks = new Chunk[index == 1 ? 1 : 8];
 		
 		if (index == 1)
 		{
 			Chunk chunk = new Chunk(noise, material, Vector2.Zero, size * 3, detail * 3, addCollision);
-			chunk.Prepair(0, 0);
+			chunk.Prepair(0, 0, 0);
 			chunk.Translation = chunk.prePosition;
 			chunk.Apply();
 			chunks[0] = chunk;
-			Chunk chunk2 = new Chunk(null, waterMaterial, Vector2.Zero, size * 3, 10, false);
-			chunk2.Prepair(0, 0);
-			chunk2.Translation = chunk2.prePosition;
-			chunk2.Apply();
-			chunks[1] = chunk2;
 		}
 		else
 		{
@@ -35,26 +28,21 @@ public class Ring
 					if (j == 0 && k == 0)
 						continue;
 					Chunk chunk = new Chunk(noise, material, new Vector2(j, k), size, detail, addCollision);
-					chunk.Prepair(0, 0);
+					chunk.Prepair(0, 0, 0);
 					chunk.Translation = chunk.prePosition;
 					chunk.Apply();
 					chunks[count] = chunk;
 					count++;
 				}
 			}
-			Chunk chunk2 = new Chunk(null, waterMaterial, Vector2.Zero, size * 3, 10, false);
-			chunk2.Prepair(0, 0);
-			chunk2.Translation = chunk2.prePosition;
-			chunk2.Apply();
-			chunks[count] = chunk2;
 		}
 	}
 
-	public void ShiftProcess(float offsetX, float offsetY)
+	public void ShiftProcess(float offsetX, float offsetY, float offsetZ)
 	{
 		foreach (Chunk chunk in chunks)
 		{
-			chunk.Prepair(offsetX, offsetY);
+			chunk.Prepair(offsetX, offsetY, offsetZ);
 		}
 	}
 

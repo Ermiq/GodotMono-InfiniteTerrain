@@ -5,8 +5,9 @@ using System.Collections.Generic;
 
 public class World : Spatial
 {
-	float originSize = 300.0f;
-	int detail = 30;
+	float originalSize = 500.0f;
+	float adjustedSize;
+	int detail = 40;
 	int ringsAmount = 5;
 	
 	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
@@ -22,7 +23,7 @@ public class World : Spatial
 	List<Ring> rings = new List<Ring>();
 
 	Vector3 playerPreviousPosition;
-	float offsetX, offsetZ;
+	float offsetX, offsetY, offsetZ;
 
 	Thread thread;
 	
@@ -36,12 +37,14 @@ public class World : Spatial
 
 		noise = new OpenSimplexNoise();
 		noise.Seed = (int)OS.GetUnixTime();
-		noise.Octaves = 4;
+		noise.Octaves = 9;
 		noise.Persistence = 0.2f;
-		noise.Period = 5000;
+		noise.Period = 10000;
 		noise.Lacunarity = 4f;
 
 		thread = new Thread();
+
+		adjustedSize = originalSize;
 		
 		// Rings start from 1 and up to 'ringsAmount' inclusive.
 		for (int i = 1; i <= ringsAmount; i++)
@@ -49,9 +52,10 @@ public class World : Spatial
 			// The formula of n-th term in a geometric progression:
 			// Tn = T1 * ratio^(n - 1)
 			// where T1 is 1st term, ratio is the progression ratio.
-			float size = originSize * (float)Mathf.Pow(3, i - 1);
+			float size = originalSize * (float)Mathf.Pow(3, i - 1);
 			
 			Ring ring = new Ring(i, noise, material, size, detail, i == 1);
+			
 			rings.Add(ring);
 			foreach(Chunk c in ring.chunks)
 			{
@@ -105,29 +109,38 @@ public class World : Spatial
 		GetPlayerPosIndex();
 	}
 
+	int indexX, indexY, indexZ;
 	void GetPlayerPosIndex()
 	{
 		if (!doUpdate)
-		{
 			return;
-		}
+
 		Vector3 player_translation = currentPlayer.Translation;
-		if (player_translation.DistanceSquaredTo(playerPreviousPosition) > Mathf.Pow(originSize * 0.5f, 2))
+		indexY = Mathf.FloorToInt(player_translation.y / 5000f);
+		indexY = Mathf.Clamp(indexY, 1, indexY);
+		indexX = Mathf.FloorToInt(player_translation.x / (originalSize * indexY));
+		indexZ = Mathf.FloorToInt(player_translation.z / (originalSize * indexY));
+		
+		if (playerPreviousPosition.x != indexX || playerPreviousPosition.y != indexY || playerPreviousPosition.z != indexZ)
 		{
-			offsetX = player_translation.x;
-			offsetZ = player_translation.z;
+			if (thread.IsActive())
+				return;
+			offsetX = indexX * (originalSize * indexY) + (originalSize * indexY * 0.5f);
+			offsetY = indexY;
+			if (offsetY != 1) offsetY *= 1.5f;
+			offsetZ = indexZ * (originalSize * indexY) + (originalSize * indexY * 0.5f);
+			
+			playerPreviousPosition.x = indexX;
+			playerPreviousPosition.y = indexY;
+			playerPreviousPosition.z = indexZ;
 			UpdateRings();
-			playerPreviousPosition = player_translation;
 		}
 	}
 
 	void UpdateRings()
 	{
-		if (!thread.IsActive())
-		{
-			thread.Start(this, "LoadRings", new object[3] { thread, offsetX, offsetZ });
-			//LoadRing(new object[3] { null, offsetX, offsetZ });
-		}
+		thread.Start(this, "LoadRings", new object[4] { thread, offsetX, offsetY, offsetZ });
+		//LoadRing(new object[3] { null, offsetX, offsetZ });
 	}
 
 	void LoadRings(object[] arr)
@@ -135,10 +148,11 @@ public class World : Spatial
 		Thread thread = arr[0] as Thread;
 		float offsetX = (float)arr[1];
 		float offsetY = (float)arr[2];
+		float offsetZ = (float)arr[3];
 		
 		foreach (Ring ring in rings)
 		{
-			ring.ShiftProcess(offsetX, offsetY);
+			ring.ShiftProcess(offsetX, offsetY, offsetZ);
 		}
 
 		CallDeferred("FinishThread", thread);

@@ -24,6 +24,7 @@ public class Chunk : Spatial
 	OpenSimplexNoise noise;
 	Material material;
 	float size;
+	float sizeModifier = 1f;
 	int detail;
 	Quad[] quads;
 	SeamSide seamSide = SeamSide.NONE;
@@ -34,7 +35,6 @@ public class Chunk : Spatial
 
 	public Chunk(OpenSimplexNoise noise, Material material, Vector2 index, float size, int detail, bool addCollision = false)
 	{
-		
 		this.noise = noise;
 		this.material = material;
 		this.index = index;
@@ -76,7 +76,7 @@ public class Chunk : Spatial
 		
 		Vector3 center;
 		// Calculate half size of the quad's edge. We'll use it to get the quad center position.
-		float quadHalfSize = size / (float)detail * 0.5f;
+		float quadHalfSize = size * sizeModifier / (float)detail * 0.5f;
 
 		for (int z = 0; z < detail; z++)
 		{
@@ -88,18 +88,23 @@ public class Chunk : Spatial
 				// X = (meshCenter - meshHalfSize + quadHalfSize + 1 quadFullSize) by X axis  
 				// Z = (meshCenter - meshHalfSize + quadHalfSize + 2 quadFullSize) by Z axis
 				center = new Vector3(
-					(size * -0.5f + quadHalfSize) + x * (quadHalfSize * 2f),
+					(size * sizeModifier * -0.5f + quadHalfSize) + x * (quadHalfSize * 2f),
 					0,
-					(size * -0.5f + quadHalfSize) + z * (quadHalfSize * 2f));
+					(size * sizeModifier * -0.5f + quadHalfSize) + z * (quadHalfSize * 2f));
 
 				quads[detail * z + x] = new Quad(GetQuadSeamSide(detail * z + x), center, quadHalfSize);
 			}
 		}
 	}
 
-	public void Prepair(float x, float z)
+	public void Prepair(float x, float y, float z)
 	{
-		prePosition = new Vector3(index.x * size + x, 0, index.y * size + z);
+		if (sizeModifier != y)
+		{
+			sizeModifier = y;
+			InitQuads();
+		}
+		prePosition = new Vector3(index.x * (size * sizeModifier) + x, 0, index.y * (size * sizeModifier) + z);
 		Generate();
 	}
 
@@ -108,7 +113,7 @@ public class Chunk : Spatial
 		prePosition = new Vector3(index.x * size + x, 0, index.y * size + z);
 		task = Task.Run(Generate);
 	}
-	
+
 	SeamSide GetSeamSide()
 	{
 		if (index == Vector2.Up)
@@ -153,7 +158,6 @@ public class Chunk : Spatial
 		}
 
 		surfaceTool.Clear();
-		seamQuads = null;
 	}
 
 	MeshInstance GetTheOtherMeshInstance()
@@ -232,11 +236,12 @@ public class Chunk : Spatial
 	{
 		if (noise == null)
 			return;
+		
 		vertex.y = noise.GetNoise2d(vertex.x + prePosition.x, vertex.z + prePosition.z);
 		if (vertex.y > 0)
 			vertex.y = Mathf.Pow(vertex.y * 2f, 2);
 		//vertex.y *= vertex.y < 0.5f ? Mathf.Pow(vertex.y * 2f, 2) / 2f : 1 - (Mathf.Pow((1f - vertex.y) * 2f, 2) / 2f);
 		//vertex.y += 0.01f;
-		vertex.y *= 1000f;
+		vertex.y *= 3000f;
 	}
 }
