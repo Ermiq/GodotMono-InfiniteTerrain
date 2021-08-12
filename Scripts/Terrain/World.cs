@@ -1,7 +1,7 @@
 using Godot;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 public class World : Spatial
 {
@@ -24,7 +24,7 @@ public class World : Spatial
 	Vector3 playerPreviousPosition;
 	float offsetX, offsetY, offsetZ;
 
-	Thread thread;
+	Task[] tasks;
 	
 	public override void _Ready()
 	{
@@ -40,8 +40,6 @@ public class World : Spatial
 		noise.Persistence = 0.25f;
 		noise.Period = 5000;
 		noise.Lacunarity = 4f;
-
-		thread = new Thread();
 		
 		// Rings start from 1 and up to 'ringsAmount' inclusive.
 		for (int i = 1; i <= ringsAmount; i++)
@@ -123,8 +121,6 @@ public class World : Spatial
 		
 		if (playerPreviousPosition != index)
 		{
-			if (thread.IsActive())
-				return;
 			offsetX = index.x * (originalSize * index.y) + (originalSize * index.y * 0.5f);
 			offsetZ = index.z * (originalSize * index.y) + (originalSize * index.y * 0.5f);
 			offsetY = index.y;
@@ -137,32 +133,24 @@ public class World : Spatial
 		}
 	}
 
-	void UpdateRings()
+	async void UpdateRings()
 	{
-		thread.Start(this, "LoadRings", new object[4] { thread, offsetX, offsetY, offsetZ });
-		//LoadRing(new object[3] { null, offsetX, offsetZ });
-	}
-
-	void LoadRings(object[] arr)
-	{
-		Thread thread = arr[0] as Thread;
-		float offsetX = (float)arr[1];
-		float offsetY = (float)arr[2];
-		float offsetZ = (float)arr[3];
+		if (tasks != null)
+			return;
 		
-		foreach (Ring ring in rings)
+		tasks = new Task[ringsAmount];
+		for (int i = 0; i < ringsAmount; i++)
 		{
-			ring.ShiftProcess(offsetX, offsetY, offsetZ);
+			Ring ring = rings[i];
+			tasks[i] = Task.Run(() => {
+				ring.ShiftProcess(offsetX, offsetY, offsetZ);
+			});
 		}
-
-		CallDeferred("FinishThread", thread);
-	}
-
-	void FinishThread(Thread thread)
-	{
-		thread.WaitToFinish();
-
-		foreach (Ring ring in rings)
+		await Task.WhenAll(tasks);
+		foreach(Ring ring in rings)
+		{
 			ring.ShiftApply();
+		}
+		tasks = null;
 	}
 }
