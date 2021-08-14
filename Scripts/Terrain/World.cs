@@ -7,7 +7,7 @@ public class World : Spatial
 {
 	float originalSize = 300.0f;
 	int detail = 30;
-	int ringsAmount = 5;
+	int ringsAmount = 4;
 	bool doUpdate = true;
 	
 	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
@@ -114,7 +114,7 @@ public class World : Spatial
 
 		Vector3 player_translation = currentPlayer.Translation;
 		Vector3 index;
-		index.y = Mathf.FloorToInt(player_translation.y / 5000f);
+		index.y = Mathf.FloorToInt(player_translation.y / 1000f);
 		index.y = Mathf.Clamp(index.y, 1, index.y);
 		index.x = Mathf.FloorToInt(player_translation.x / (originalSize * index.y));
 		index.z = Mathf.FloorToInt(player_translation.z / (originalSize * index.y));
@@ -124,16 +124,16 @@ public class World : Spatial
 			offsetX = index.x * (originalSize * index.y) + (originalSize * index.y * 0.5f);
 			offsetZ = index.z * (originalSize * index.y) + (originalSize * index.y * 0.5f);
 			offsetY = index.y;
-			if (offsetY != 1) offsetY *= 1.5f;
+			if (offsetY != 1) offsetY *= 2f;
 			
 			playerPreviousPosition.x = index.x;
 			playerPreviousPosition.y = index.y;
 			playerPreviousPosition.z = index.z;
-			UpdateRings();
+			UpdateRingsAsync();
 		}
 	}
 
-	async void UpdateRings()
+	async void UpdateRingsAsync()
 	{
 		if (tasks != null)
 			return;
@@ -147,6 +147,26 @@ public class World : Spatial
 			});
 		}
 		await Task.WhenAll(tasks);
+		/*
+		Another way - separate thread for each chunk.
+		This runs a bit faster, but there is a glitch: very often
+		inner ring chunks fail to translate leaving a black hole.
+
+		for (int i = 0; i < ringsAmount; i++)
+		{
+			Ring ring = rings[i];
+			tasks = new Task[ring.chunks.Length];
+			for (int j = 0; j < ring.chunks.Length; j++)
+			{
+				Chunk chunk = ring.chunks[j];
+				tasks[j] = Task.Run(() =>
+				{
+					chunk.Prepair(offsetX, offsetY, offsetZ);
+				});
+			}
+			await Task.WhenAll(tasks);
+		}
+		*/
 		foreach(Ring ring in rings)
 		{
 			ring.ShiftApply();

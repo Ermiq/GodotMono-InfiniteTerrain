@@ -3,10 +3,10 @@ using System;
 
 public class Quad
 {
-    public Vector3[] vertices { get; private set; }
-    
+	public Vector3[] vertices { get; private set; }
+
 	SeamSide seamSide = SeamSide.NONE;
-	
+
 	public Quad(SeamSide seamSide, Vector3 center, float halfSize)
 	{
 		this.seamSide = seamSide;
@@ -18,21 +18,26 @@ public class Quad
 		Vector3 topRight = center + new Vector3(halfSize, 0, -halfSize);
 		Vector3 bottomRight = center + new Vector3(halfSize, 0, halfSize);
 
-		AddTriangles(center, bottomLeft, topLeft, topRight, bottomRight);
-	}
-
-	void AddTriangles(Vector3 center, Vector3 bottomLeft, Vector3 topLeft, Vector3 topRight, Vector3 bottomRight)
-	{
-        int vertexIndex = 0;
-		// Add triangles (as a set of 3 vertices) to the array:
-		// 1. Top triangle:
-		AddTriangle(ref vertexIndex, center, topLeft, topRight, SeamSide.TOP);
-		// 2. Right triangle:
-		AddTriangle(ref vertexIndex, center, topRight, bottomRight, SeamSide.RIGHT);
-		// 3. Bottom triangle:
-		AddTriangle(ref vertexIndex, center, bottomRight, bottomLeft, SeamSide.BOTTOM);
-		// 4. Left triangle:
-		AddTriangle(ref vertexIndex, center, bottomLeft, topLeft, SeamSide.LEFT);
+		int vertexIndex = 0;
+		if (seamSide == SeamSide.NONE)
+		{
+			// 1. Top triangle:
+			AddTriangle(ref vertexIndex, bottomLeft, topLeft, topRight, SeamSide.TOP);
+			// 2. Right triangle:
+			AddTriangle(ref vertexIndex, topRight, bottomRight, bottomLeft, SeamSide.TOP);
+		}
+		else
+		{
+			// Add triangles (as a set of 3 vertices) to the array:
+			// 1. Top triangle:
+			AddTriangle(ref vertexIndex, center, topLeft, topRight, SeamSide.TOP);
+			// 2. Right triangle:
+			AddTriangle(ref vertexIndex, center, topRight, bottomRight, SeamSide.RIGHT);
+			// 3. Bottom triangle:
+			AddTriangle(ref vertexIndex, center, bottomRight, bottomLeft, SeamSide.BOTTOM);
+			// 4. Left triangle:
+			AddTriangle(ref vertexIndex, center, bottomLeft, topLeft, SeamSide.LEFT);
+		}
 	}
 
 	void AddTriangle(ref int index, Vector3 center, Vector3 corner1, Vector3 corner2, SeamSide side)
