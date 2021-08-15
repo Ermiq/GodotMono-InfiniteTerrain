@@ -69,18 +69,18 @@ public class World : Spatial
 	{
 		base._Process(delta);
 
-		if (Input.IsActionJustPressed("ui_up"))
+		if (Input.IsActionJustPressed("f1"))
 		{
 			var vp = GetViewport();
 			vp.DebugDraw = vp.DebugDraw == Viewport.DebugDrawEnum.Wireframe ? Viewport.DebugDrawEnum.Disabled : Viewport.DebugDrawEnum.Wireframe;
 		}
 
-		if (Input.IsActionJustPressed("ui_left"))
+		if (Input.IsActionJustPressed("f2"))
 		{
 			doUpdate = !doUpdate;
 		}
 
-		if (Input.IsActionJustPressed("ui_down"))
+		if (Input.IsActionJustPressed("f3"))
 		{
 			if (currentPlayer == Player)
 			{

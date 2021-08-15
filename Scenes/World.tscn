@@ -1,16 +1,15 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://Scripts/Terrain/World.cs" type="Script" id=1]
 [ext_resource path="res://Scenes/FPS.tscn" type="PackedScene" id=2]
-[ext_resource path="res://Scenes/Player.tscn" type="PackedScene" id=3]
+[ext_resource path="res://Scenes/VBL.tscn" type="PackedScene" id=3]
 [ext_resource path="res://default_env.tres" type="Environment" id=4]
+[ext_resource path="res://Scenes/FlyCam.tscn" type="PackedScene" id=5]
 
 [node name="Node" type="Node"]
 
 [node name="World" type="Spatial" parent="."]
 script = ExtResource( 1 )
-
-[node name="Player" parent="." instance=ExtResource( 3 )]
 
 [node name="FPSLabel" parent="." instance=ExtResource( 2 )]
 
@@ -21,3 +20,8 @@ shadow_enabled = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 4 )
+
+[node name="Player" parent="." instance=ExtResource( 3 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -34.3913, 11.6305, 0 )
+
+[node name="Camera" parent="." instance=ExtResource( 5 )]

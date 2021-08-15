@@ -1,4 +1,4 @@
-extends Camera
+extends Spatial
 
 const MOUSE_SENSITIVITY = 0.002
 
@@ -14,8 +14,11 @@ var velocity := Vector3()
 # The initial camera node rotation
 var initial_rotation := rotation.y
 
+var player : Spatial
+
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	player = get_parent().get_node("Player")
 
 func _input(event: InputEvent) -> void:
 	# Mouse look (effective only if the mouse is captured)
@@ -32,7 +35,10 @@ func _input(event: InputEvent) -> void:
 		move_speed = max(0.1, move_speed - move_speed * 0.1)
 
 func _process(delta: float) -> void:
-	# Toggle mouse capture (only while the menu is not visible)
+	if not player == null:
+		translation = player.translation
+	
+		# Toggle mouse capture (only while the menu is not visible)
 	if Input.is_action_just_released("ui_cancel"):
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -72,7 +78,7 @@ func _process(delta: float) -> void:
 	# Add motion, apply friction and velocity
 	velocity += motion * move_speed
 	velocity *= 0.9
-	translation += velocity * delta
+	get_node("Camera").translation += velocity * delta
 
 
 func _exit_tree() -> void:
