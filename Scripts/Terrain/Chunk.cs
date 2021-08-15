@@ -56,6 +56,7 @@ public class Chunk : Spatial
 		AddChild(staticBody);
 		collision = new CollisionShape();
 		shape = new ConcavePolygonShape();
+		collision.Shape = shape;
 		staticBody.AddChild(collision);
 
 		Translation = new Vector3(index.x * (size * sizeModifier), 0, index.y * (size * sizeModifier));
@@ -128,6 +129,12 @@ public class Chunk : Spatial
 		// Generate a mesh instance data:
 		arrayMesh = surfaceTool.Commit();
 		surfaceTool.Clear();
+
+		// This causes hick ups, but in a thread it causes crashes... so...
+		if (addCollision)
+		{
+			shape.SetDeferred("data", arrayMesh.GetFaces());
+		}
 	}
 
 	void ReapplyHeights(float offsetX, float offsetZ)
@@ -142,17 +149,16 @@ public class Chunk : Spatial
 		}
 		arrayMesh.SurfaceRemove(0);
 		mdt.CommitToSurface(arrayMesh);
+
+		// This causes hick ups, but in a thread it causes crashes... so...
+		if (addCollision)
+		{
+			shape.SetDeferred("data", arrayMesh.GetFaces());
+		}
 	}
 
 	public void Apply()
 	{
-		// This causes hick ups, but in a thread it causes crashes... so...
-		if (addCollision)
-		{
-			shape.Data = arrayMesh.GetFaces();
-			collision.Shape = shape;
-		}
-
 		Translation = position;
 		mesh_instance.Mesh = arrayMesh;
 	}

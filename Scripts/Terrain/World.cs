@@ -5,8 +5,8 @@ using System.Threading.Tasks;
 
 public class World : Spatial
 {
-	float originalSize = 1000.0f;
-	int detail = 100;
+	float originalSize = 500.0f;
+	int detail = 50;
 	int ringsAmount = 4;
 	bool doUpdate = true;
 	
