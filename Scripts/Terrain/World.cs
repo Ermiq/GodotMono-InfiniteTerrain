@@ -5,8 +5,8 @@ using System.Threading.Tasks;
 
 public class World : Spatial
 {
-	float originalSize = 300.0f;
-	int detail = 30;
+	float originalSize = 1000.0f;
+	int detail = 100;
 	int ringsAmount = 4;
 	bool doUpdate = true;
 	
@@ -129,7 +129,21 @@ public class World : Spatial
 			playerPreviousPosition.x = index.x;
 			playerPreviousPosition.y = index.y;
 			playerPreviousPosition.z = index.z;
+			//UpdateRings();
 			UpdateRingsAsync();
+		}
+	}
+
+	void UpdateRings()
+	{
+		for (int i = 0; i < ringsAmount; i++)
+		{
+			Ring ring = rings[i];
+			ring.ShiftProcess(offsetX, offsetY, offsetZ);
+		}
+		foreach(Ring ring in rings)
+		{
+			ring.ShiftApply();
 		}
 	}
 

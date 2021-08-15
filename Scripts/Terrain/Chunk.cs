@@ -14,12 +14,10 @@ public class Chunk : Spatial
 	public Vector2 index;
 	public Vector3 position { get; private set; }
 
-	MeshInstance mesh_instance1;
-	MeshInstance mesh_instance2;
+	ArrayMesh arrayMesh;
+	MeshInstance mesh_instance;
 	CollisionShape collision;
-	ConcavePolygonShape shape1;
-	ConcavePolygonShape shape2;
-	MeshInstance mesh_instanceCurrent;
+	ConcavePolygonShape shape;
 	SurfaceTool surfaceTool;
 	OpenSimplexNoise noise;
 	Material material;
@@ -48,23 +46,17 @@ public class Chunk : Spatial
 			this.seamSide = SeamSide.NONE;
 
 		surfaceTool = new SurfaceTool();
-		
-		mesh_instance1 = new MeshInstance();
-		mesh_instance1.Visible = true;
-		AddChild(mesh_instance1);
+		arrayMesh = new ArrayMesh();
 
-		mesh_instance2 = new MeshInstance();
-		mesh_instance2.Visible = false;
-		AddChild(mesh_instance2);
+		mesh_instance = new MeshInstance();
+		mesh_instance.Visible = true;
+		AddChild(mesh_instance);
 
 		StaticBody staticBody = new StaticBody();
 		AddChild(staticBody);
 		collision = new CollisionShape();
-		shape1 = new ConcavePolygonShape();
-		shape2 = new ConcavePolygonShape();
+		shape = new ConcavePolygonShape();
 		staticBody.AddChild(collision);
-
-		mesh_instanceCurrent = mesh_instance1;
 
 		Translation = new Vector3(index.x * (size * sizeModifier), 0, index.y * (size * sizeModifier));
 
@@ -99,28 +91,15 @@ public class Chunk : Spatial
 		}
 	}
 
-	public void Prepair(float offsetX = 0, float offsetY = 1, float offsetZ = 0)
+	public void GenerateSurface(float offsetX = 0, float offsetY = 1, float offsetZ = 0)
 	{
 		if (sizeModifier != offsetY)
 		{
 			sizeModifier = offsetY;
 			InitQuads();
 		}
-		position = Translation + new Vector3(offsetX, 0, offsetZ);
+		position = new Vector3(index.x * (size * sizeModifier) + offsetX, 0, index.y * (size * sizeModifier) + offsetZ);
 		Generate(offsetX, offsetZ);
-	}
-
-	SeamSide GetSeamSide()
-	{
-		if (index == Vector2.Up)
-			return SeamSide.BOTTOM;
-		else if (index == Vector2.Right)
-			return SeamSide.LEFT;
-		else if (index == Vector2.Down)
-			return SeamSide.TOP;
-		else if (index == Vector2.Left)
-			return SeamSide.RIGHT;
-		else return SeamSide.NONE;
 	}
 
 	// Create a mesh from quads. Each quad is made of 4 triangles (as splitted by 2 diagonal lines).
@@ -131,10 +110,8 @@ public class Chunk : Spatial
 			return;
 		}
 
-		position = new Vector3(index.x * (size * sizeModifier) + offsetX, 0, index.y * (size * sizeModifier) + offsetZ);
-
 		surfaceTool.Begin(Mesh.PrimitiveType.Triangles);
-		surfaceTool.AddSmoothGroup(true);//(addCollision);
+		surfaceTool.AddSmoothGroup(true);
 
 		foreach (Quad quad in quads)
 		{
@@ -145,43 +122,39 @@ public class Chunk : Spatial
 				surfaceTool.AddVertex(vertex);
 			}
 		}
-
 		surfaceTool.SetMaterial(material);
 		surfaceTool.GenerateNormals();
 
 		// Generate a mesh instance data:
-		GetTheOtherMeshInstance().Mesh = surfaceTool.Commit();
-		if (addCollision)
-		{
-			GetTheOtherShape().Data = GetTheOtherMeshInstance().Mesh.GetFaces();
-		}
-
+		arrayMesh = surfaceTool.Commit();
 		surfaceTool.Clear();
 	}
 
-	MeshInstance GetTheOtherMeshInstance()
+	void ReapplyHeights(float offsetX, float offsetZ)
 	{
-		if (mesh_instanceCurrent == mesh_instance1)
-			return mesh_instance2;
-		else
-			return mesh_instance1;
-	}
-
-	ConcavePolygonShape GetTheOtherShape()
-	{
-		if (mesh_instanceCurrent == mesh_instance1)
-			return shape2;
-		else
-			return shape1;
+		MeshDataTool mdt = new MeshDataTool();
+		mdt.CreateFromSurface(arrayMesh, 0);
+		for (int i = 0; i < mdt.GetVertexCount(); i++)
+		{
+			Vector3 vertex = mdt.GetVertex(i);
+			AddNoise(ref vertex);
+			mdt.SetVertex(i, vertex);
+		}
+		arrayMesh.SurfaceRemove(0);
+		mdt.CommitToSurface(arrayMesh);
 	}
 
 	public void Apply()
 	{
+		// This causes hick ups, but in a thread it causes crashes... so...
+		if (addCollision)
+		{
+			shape.Data = arrayMesh.GetFaces();
+			collision.Shape = shape;
+		}
+
 		Translation = position;
-		collision.Shape = GetTheOtherShape();
-		mesh_instanceCurrent.Visible = false;
-		mesh_instanceCurrent = GetTheOtherMeshInstance();
-		mesh_instanceCurrent.Visible = true;
+		mesh_instance.Mesh = arrayMesh;
 	}
 
 	int[] GetEdgeQuads()
@@ -218,6 +191,19 @@ public class Chunk : Spatial
 			count++;
 		}
 		return result;
+	}
+
+	SeamSide GetSeamSide()
+	{
+		if (index == Vector2.Up)
+			return SeamSide.BOTTOM;
+		else if (index == Vector2.Right)
+			return SeamSide.LEFT;
+		else if (index == Vector2.Down)
+			return SeamSide.TOP;
+		else if (index == Vector2.Left)
+			return SeamSide.RIGHT;
+		else return SeamSide.NONE;
 	}
 
 	SeamSide GetQuadSeamSide(int quadIndex)
