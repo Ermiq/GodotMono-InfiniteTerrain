@@ -9,7 +9,7 @@ public enum SeamSide
 	NONE, TOP, RIGHT, BOTTOM, LEFT
 }
 
-public class Chunk : Node
+public class Chunk : Spatial
 {
 	public Vector2 index;
 	public Vector3 position { get; private set; }
@@ -66,12 +66,13 @@ public class Chunk : Node
 
 		mesh_instanceCurrent = mesh_instance1;
 
+		Translation = new Vector3(index.x * (size * sizeModifier), 0, index.y * (size * sizeModifier));
+
 		InitQuads();
 	}
 
 	void InitQuads()
 	{
-		position = new Vector3(index.x * (size * sizeModifier), 0, index.y * (size * sizeModifier));
 		quads = new Quad[detail * detail];
 		seamQuads = GetEdgeQuads();
 		
@@ -88,7 +89,7 @@ public class Chunk : Node
 				// The quad which is at index x = 1, index z = 2 has coords:
 				// X = (meshCenter - meshHalfSize + quadHalfSize + 1 quadFullSize) by X axis  
 				// Z = (meshCenter - meshHalfSize + quadHalfSize + 2 quadFullSize) by Z axis
-				center = position + new Vector3(
+				center = new Vector3(
 					(size * sizeModifier * -0.5f + quadHalfSize) + x * (quadHalfSize * 2f),
 					0,
 					(size * sizeModifier * -0.5f + quadHalfSize) + z * (quadHalfSize * 2f));
@@ -105,6 +106,7 @@ public class Chunk : Node
 			sizeModifier = offsetY;
 			InitQuads();
 		}
+		position = Translation + new Vector3(offsetX, 0, offsetZ);
 		Generate(offsetX, offsetZ);
 	}
 
@@ -129,6 +131,8 @@ public class Chunk : Node
 			return;
 		}
 
+		position = new Vector3(index.x * (size * sizeModifier) + offsetX, 0, index.y * (size * sizeModifier) + offsetZ);
+
 		surfaceTool.Begin(Mesh.PrimitiveType.Triangles);
 		surfaceTool.AddSmoothGroup(true);//(addCollision);
 
@@ -137,7 +141,6 @@ public class Chunk : Node
 			for (int v = 0; v < quad.vertices.Length; v++)
 			{
 				Vector3 vertex = quad.vertices[v];
-				vertex += Vector3.Right * offsetX  + Vector3.Back * offsetZ;
 				AddNoise(ref vertex);
 				surfaceTool.AddVertex(vertex);
 			}
@@ -174,6 +177,7 @@ public class Chunk : Node
 
 	public void Apply()
 	{
+		Translation = position;
 		collision.Shape = GetTheOtherShape();
 		mesh_instanceCurrent.Visible = false;
 		mesh_instanceCurrent = GetTheOtherMeshInstance();
@@ -231,13 +235,9 @@ public class Chunk : Node
 		if (noise == null)
 			return;
 		
-		float n = noise.GetNoise3d(vertex.x, vertex.y, vertex.z);
+		float n = noise.GetNoise2d(vertex.x + position.x, vertex.z + position.z);
 		if (n > 0)
 			n = Mathf.Pow(n, 2) * 1.5f;
 		vertex.y = n * 3000f;
-		//vertex.y *= vertex.y < 0.5f ? Mathf.Pow(vertex.y * 2f, 2) / 2f : 1 - (Mathf.Pow((1f - vertex.y) * 2f, 2) / 2f);
-		
-		//vertex.y = 100000f;
-		//vertex = vertex.Normalized() * (-n * 500f + 2000f);
 	}
 }
