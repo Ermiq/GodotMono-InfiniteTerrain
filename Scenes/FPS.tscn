@@ -8,8 +8,8 @@ __meta__ = {
 }
 
 [node name="ColorRect" type="ColorRect" parent="."]
-margin_right = 305.0
-margin_bottom = 130.0
+margin_right = 377.0
+margin_bottom = 145.0
 color = Color( 0, 0, 0, 0.352941 )
 
 [node name="Label" type="Label" parent="ColorRect"]
@@ -20,6 +20,7 @@ margin_bottom = 95.0
 text = "F1 - toggle wireframe
 F2 - toggle terrain update
 F3 - switch between flying camera and vehicle
+Mouse wheel - change fly cam speed or car cam distance
 
 Move with arrow keys
 
@@ -30,7 +31,7 @@ __meta__ = {
 
 [node name="FPSLabel" type="Label" parent="."]
 margin_left = 35.0
-margin_top = 107.0
+margin_top = 123.0
 text = "fps"
 uppercase = true
 script = ExtResource( 1 )

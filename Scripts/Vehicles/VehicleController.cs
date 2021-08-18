@@ -5,13 +5,14 @@ using System.Collections.Generic;
 public class VehicleController : RigidBody
 {
 	// control variables
-	public float EnginePower = 20.0f;
-	public float SteeringAngle = 20.0f;
+	public float EnginePower = 200.0f;
+	public float SteeringAngle = 30.0f;
 	// currently, raycast driver expects this array to exist in the controller script
 	public List<RayCastDriver> RayElements = new List<RayCastDriver>();
 	float drivePerRay; // = EnginePower;
 	RayCastDriver frontRightWheel;
 	RayCastDriver frontLeftWheel;
+	float steerValue;
 
 	public override void _Ready()
 	{
@@ -40,25 +41,28 @@ public class VehicleController : RigidBody
 		// 4WD with front wheel steering
 		foreach (RayCastDriver ray in RayElements)
 		{
-			var dir = 0;
+			float dir = 0;
 			if (Input.IsActionPressed("ui_up"))
 				dir += 1;
 			if (Input.IsActionPressed("ui_down"))
 				dir -= 1;
-			// steering, set wheels initially straight
-			frontLeftWheel.RotationDegrees = new Vector3(frontLeftWheel.RotationDegrees.x, 0.0f, frontLeftWheel.RotationDegrees.z);
-			frontRightWheel.RotationDegrees = new Vector3(frontRightWheel.RotationDegrees.x, 0.0f, frontRightWheel.RotationDegrees.z);
+			// faster down the slope, slower up the hill
+			dir -= GlobalTransform.basis.z.Dot(Vector3.Up);
+			
 			// if input provided, steer
-			if (Input.IsActionPressed("ui_left"))
+			if (Input.IsActionPressed("ui_left") || Input.IsActionPressed("ui_right"))
 			{
-				frontLeftWheel.RotationDegrees = new Vector3(frontLeftWheel.RotationDegrees.x, SteeringAngle, frontLeftWheel.RotationDegrees.z);
-				frontRightWheel.RotationDegrees = new Vector3(frontRightWheel.RotationDegrees.x, SteeringAngle, frontRightWheel.RotationDegrees.z);
+				if (Input.IsActionPressed("ui_left"))
+					steerValue = Mathf.MoveToward(steerValue, SteeringAngle, SteeringAngle * delta);
+				if (Input.IsActionPressed("ui_right"))
+					steerValue = Mathf.MoveToward(steerValue, -SteeringAngle, SteeringAngle * delta);
 			}
-			if (Input.IsActionPressed("ui_right"))
+			else
 			{
-				frontLeftWheel.RotationDegrees = new Vector3(frontLeftWheel.RotationDegrees.x, -SteeringAngle, frontLeftWheel.RotationDegrees.z);
-				frontRightWheel.RotationDegrees = new Vector3(frontRightWheel.RotationDegrees.x, -SteeringAngle, frontRightWheel.RotationDegrees.z);
+				steerValue = Mathf.MoveToward(steerValue, 0, SteeringAngle * delta);
 			}
+			frontLeftWheel.RotationDegrees = new Vector3(frontLeftWheel.RotationDegrees.x, steerValue, frontLeftWheel.RotationDegrees.z);
+			frontRightWheel.RotationDegrees = new Vector3(frontRightWheel.RotationDegrees.x, steerValue, frontRightWheel.RotationDegrees.z);
 
 			ray.ApplyDriveForce(dir * GlobalTransform.basis.z * drivePerRay * delta);
 		}

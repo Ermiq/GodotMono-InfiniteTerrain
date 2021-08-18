@@ -5,8 +5,8 @@ using System.Threading.Tasks;
 
 public class World : Spatial
 {
-	float originalSize = 500.0f;
-	int detail = 200;
+	float originalSize = 300.0f;
+	int detail = 50;
 	int ringsAmount = 3;
 	bool doUpdate = true;
 	
@@ -37,7 +37,7 @@ public class World : Spatial
 		noise.Seed = (int)OS.GetUnixTime();
 		noise.Octaves = 9;
 		noise.Persistence = 0.25f;
-		noise.Period = 5000;
+		noise.Period = 10000;
 		noise.Lacunarity = 4f;
 		
 		// Rings start from 1 and up to 'ringsAmount' inclusive.

@@ -6,10 +6,10 @@ public class RayCastDriver : RayCast
 	// control variables
 	public float MaxForce = 300.0f;
 	public float SpringForce = 150f;
-	public float Stifness = 0.85f;
-	public float Damping = 0.05f;
+	public float Stifness = 0.85f; // efficiency of the suspension lifting force
+	public float Damping = 0.75f; // hardness and normalization speed of the suspension
 	public float Xtraction = 0.75f;
-	public float Ztraction = 0.02f;
+	public float Ztraction = 0.05f;
 
 	// public variables
 	public Vector3 InstantLinearVelocity;
