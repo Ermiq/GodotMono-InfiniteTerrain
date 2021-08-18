@@ -6,15 +6,14 @@ using System.Threading.Tasks;
 public class World : Spatial
 {
 	float originalSize = 500.0f;
-	int detail = 50;
-	int ringsAmount = 4;
+	int detail = 200;
+	int ringsAmount = 3;
 	bool doUpdate = true;
 	
-	PackedScene PlayerScene = ResourceLoader.Load("res://Scenes/Player.tscn") as PackedScene;
-	PackedScene FlyCamScene = ResourceLoader.Load("res://Scenes/FlyCam.tscn") as PackedScene;
-	Spatial Player;
-	Spatial FlyCam;
-	Spatial currentPlayer;
+	PackedScene CarScene = ResourceLoader.Load("res://Scenes/Car.tscn") as PackedScene;
+	PackedScene CamScene = ResourceLoader.Load("res://Scenes/Camera.tscn") as PackedScene;
+	Spatial Car;
+	Spatial Cam;
 	
 	Material material = ResourceLoader.Load("res://Terrain.material") as Material;
 
@@ -61,8 +60,8 @@ public class World : Spatial
 			}
 		}
 		
-		Player = GetParent().GetNode("Player") as Spatial;
-		currentPlayer = Player;
+		Cam = GetParent().GetNode("Camera") as Spatial;
+		Car = GetParent().GetNode("Car") as Spatial;
 	}
 
 	public override void _Process(float delta)
@@ -82,25 +81,16 @@ public class World : Spatial
 
 		if (Input.IsActionJustPressed("f3"))
 		{
-			if (currentPlayer == Player)
+			if (Car == null)
 			{
-				Vector3 pos = Player.Translation;
-				GetParent().RemoveChild(Player);
-				Player = null;
-				FlyCam = FlyCamScene.Instance() as Spatial;
-				FlyCam.Translation = pos;
-				GetParent().AddChild(FlyCam);
-				currentPlayer = FlyCam;
+				Car = CarScene.Instance() as Spatial;
+				Car.Translation = Cam.Translation;
+				GetParent().AddChild(Car);
 			}
 			else
 			{
-				Vector3 pos = FlyCam.Translation;
-				GetParent().RemoveChild(FlyCam);
-				FlyCam = null;
-				Player = PlayerScene.Instance() as Spatial;
-				Player.Translation = pos;
-				GetParent().AddChild(Player);
-				currentPlayer = Player;
+				GetParent().RemoveChild(Car);
+				Car = null;
 			}
 		}
 
@@ -112,7 +102,7 @@ public class World : Spatial
 		if (!doUpdate)
 			return;
 
-		Vector3 player_translation = currentPlayer.Translation;
+		Vector3 player_translation = Cam.Translation;
 		Vector3 index;
 		index.y = Mathf.FloorToInt(player_translation.y / 1000f);
 		index.y = Mathf.Clamp(index.y, 1, index.y);

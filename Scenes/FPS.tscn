@@ -2,14 +2,38 @@
 
 [ext_resource path="res://Scripts/FPS.gd" type="Script" id=1]
 
-[node name="FPSLabel" type="Label"]
-anchor_left = 0.5
-anchor_right = 0.5
-margin_right = 100.0
-margin_bottom = 50.0
+[node name="Container" type="Container"]
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="ColorRect" type="ColorRect" parent="."]
+margin_right = 305.0
+margin_bottom = 130.0
+color = Color( 0, 0, 0, 0.352941 )
+
+[node name="Label" type="Label" parent="ColorRect"]
+margin_left = 5.0
+margin_top = 5.0
+margin_right = 300.0
+margin_bottom = 95.0
+text = "F1 - toggle wireframe
+F2 - toggle terrain update
+F3 - switch between flying camera and vehicle
+
+Move with arrow keys
+
+FPS:"
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="FPSLabel" type="Label" parent="."]
+margin_left = 35.0
+margin_top = 107.0
 text = "fps"
-align = 1
-valign = 1
-autowrap = true
 uppercase = true
 script = ExtResource( 1 )
+__meta__ = {
+"_edit_use_anchors_": false
+}

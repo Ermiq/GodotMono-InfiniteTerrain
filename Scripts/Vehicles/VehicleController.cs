@@ -5,7 +5,7 @@ using System.Collections.Generic;
 public class VehicleController : RigidBody
 {
 	// control variables
-	public float EnginePower = 280.0f;
+	public float EnginePower = 20.0f;
 	public float SteeringAngle = 20.0f;
 	// currently, raycast driver expects this array to exist in the controller script
 	public List<RayCastDriver> RayElements = new List<RayCastDriver>();

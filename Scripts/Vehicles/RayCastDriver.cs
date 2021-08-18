@@ -5,11 +5,11 @@ public class RayCastDriver : RayCast
 {
 	// control variables
 	public float MaxForce = 300.0f;
-	public float SpringForce = 180.0f;
+	public float SpringForce = 150f;
 	public float Stifness = 0.85f;
 	public float Damping = 0.05f;
-	public float Xtraction = 1.0f;
-	public float Ztraction = 0.15f;
+	public float Xtraction = 0.75f;
+	public float Ztraction = 0.02f;
 
 	// public variables
 	public Vector3 InstantLinearVelocity;

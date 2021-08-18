@@ -4,7 +4,7 @@ using System;
 public class WheelAnimator : MeshInstance
 {
 	// public variables
-	public Vector3 WheelOffset = new Vector3(0, 0.5f, 0);
+	public Vector3 WheelOffset = new Vector3(0, 0.25f, 0);
 	public float WheelSpeedScaling = 1.0f;
 	public float ReturnSpeed = 8.0f;
 
