@@ -7,13 +7,14 @@ public class World : Spatial
 {
 	float originalSize = 300.0f;
 	int detail = 50;
-	int ringsAmount = 3;
+	int ringsAmount = 4;
 	bool doUpdate = true;
 	
 	PackedScene CarScene = ResourceLoader.Load("res://Scenes/Car.tscn") as PackedScene;
 	PackedScene CamScene = ResourceLoader.Load("res://Scenes/Camera.tscn") as PackedScene;
 	Spatial Car;
 	Spatial Cam;
+	RayCast Ray;
 	
 	Material material = ResourceLoader.Load("res://Terrain.material") as Material;
 
@@ -31,12 +32,14 @@ public class World : Spatial
 
 		// Enable wireframe mode in game view:
 		VisualServer.SetDebugGenerateWireframes(true);
-		GetViewport().DebugDraw = Viewport.DebugDrawEnum.Wireframe;
+		
+		// Set viewport to draw wireframe:
+		// GetViewport().DebugDraw = Viewport.DebugDrawEnum.Wireframe;
 
 		noise = new OpenSimplexNoise();
 		noise.Seed = (int)OS.GetUnixTime();
 		noise.Octaves = 9;
-		noise.Persistence = 0.25f;
+		noise.Persistence = 0.2f;
 		noise.Period = 10000;
 		noise.Lacunarity = 4f;
 		
@@ -62,6 +65,10 @@ public class World : Spatial
 		
 		Cam = GetParent().GetNode("Camera") as Spatial;
 		Car = GetParent().GetNode("Car") as Spatial;
+
+		Ray = Cam.GetNode<RayCast>("RayCast");
+		if (Car != null)
+			Ray.AddException(Car);
 	}
 
 	public override void _Process(float delta)
@@ -86,10 +93,12 @@ public class World : Spatial
 				Car = CarScene.Instance() as Spatial;
 				Car.Translation = Cam.Translation;
 				GetParent().AddChild(Car);
+				Ray.AddException(Car);
 			}
 			else
 			{
 				GetParent().RemoveChild(Car);
+				Ray.RemoveException(Car);
 				Car = null;
 			}
 		}
@@ -101,20 +110,18 @@ public class World : Spatial
 	{
 		if (!doUpdate)
 			return;
-
+		
 		Vector3 player_translation = Cam.Translation;
 		Vector3 index;
-		index.y = Mathf.FloorToInt(player_translation.y / 1000f);
-		index.y = Mathf.Clamp(index.y, 1, index.y);
-		index.x = Mathf.FloorToInt(player_translation.x / (originalSize * index.y));
-		index.z = Mathf.FloorToInt(player_translation.z / (originalSize * index.y));
+		index.y = Mathf.FloorToInt(player_translation.DistanceTo(Ray.GetCollisionPoint()) / originalSize);
+		index.x = Mathf.FloorToInt(player_translation.x / originalSize);
+		index.z = Mathf.FloorToInt(player_translation.z / originalSize);
 		
 		if (playerPreviousPosition != index)
 		{
-			offsetX = index.x * (originalSize * index.y) + (originalSize * index.y * 0.5f);
-			offsetZ = index.z * (originalSize * index.y) + (originalSize * index.y * 0.5f);
-			offsetY = index.y;
-			if (offsetY != 1) offsetY *= 2f;
+			offsetX = index.x * originalSize + (originalSize * 0.5f);
+			offsetY = index.y * originalSize + (originalSize * 0.5f);
+			offsetZ = index.z * originalSize + (originalSize * 0.5f);
 			
 			playerPreviousPosition.x = index.x;
 			playerPreviousPosition.y = index.y;
@@ -155,7 +162,7 @@ public class World : Spatial
 		Another way - separate thread for each chunk.
 		This runs a bit faster, but there is a glitch: very often
 		inner ring chunks fail to translate leaving a black hole.
-
+		
 		for (int i = 0; i < ringsAmount; i++)
 		{
 			Ring ring = rings[i];
@@ -165,7 +172,7 @@ public class World : Spatial
 				Chunk chunk = ring.chunks[j];
 				tasks[j] = Task.Run(() =>
 				{
-					chunk.Prepair(offsetX, offsetY, offsetZ);
+					chunk.GenerateSurface(offsetX, offsetY, offsetZ);
 				});
 			}
 			await Task.WhenAll(tasks);

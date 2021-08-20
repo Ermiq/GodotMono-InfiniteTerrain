@@ -1,6 +1,7 @@
 extends Spatial
 
 var cam
+var camDefaultOffset = Vector3(0, 2, -10)
 var camV
 var MOUSE_SENSITIVITY = 0.05
 var car
@@ -20,7 +21,7 @@ var initial_rotation: float = rotation.y
 func _ready():
 	cam = $CamV/Cam
 	camV = $CamV
-	car = get_parent().get_node_or_null("Car")
+	switch_car_cam()
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func _process(delta):
@@ -33,7 +34,7 @@ func _process(delta):
 	# ----------------------------------
 
 	if Input.is_action_just_pressed("f3"):
-		car = get_parent().get_node_or_null("Car")
+		switch_car_cam()
 
 	if car != null:
 		translation = car.translation
@@ -89,5 +90,14 @@ func _input(event):
 	else:
 		if Input.is_action_just_pressed("scroll_f"):
 			move_speed = clamp(move_speed + move_speed * 0.1, 0.01, 1000)
+			print("Move speed: " + str(move_speed))
 		elif Input.is_action_just_pressed("scroll_b"):
 			move_speed = clamp(move_speed - move_speed * 0.1, 0.01, 1000)
+			print("Move speed: " + str(move_speed))
+
+func switch_car_cam():
+	car = get_parent().get_node_or_null("Car")
+	if car != null:
+		cam.translation = camDefaultOffset
+	else:
+		cam.translation = Vector3.ZERO

@@ -5,11 +5,12 @@ public class Quad
 {
 	public Vector3[] vertices { get; private set; }
 
-	SeamSide seamSide = SeamSide.NONE;
+	// simplified = true -> quad is made of 2 triangles (if the quad is not a seam side quad)
+	// simplified = false -> quad is made of 4 triangles
+	bool simplified = false;
 
 	public Quad(SeamSide seamSide, Vector3 center, float halfSize)
 	{
-		this.seamSide = seamSide;
 		vertices = new Vector3[seamSide == SeamSide.NONE ? 12 : 18];
 
 		// Get 4 vertices of the quad (they relate to the center vertex):
@@ -19,30 +20,29 @@ public class Quad
 		Vector3 bottomRight = center + new Vector3(halfSize, 0, halfSize);
 
 		int vertexIndex = 0;
-		if (seamSide == SeamSide.NONE)
+		if (simplified && seamSide == SeamSide.NONE)
 		{
-			// 1. Top triangle:
-			AddTriangle(ref vertexIndex, bottomLeft, topLeft, topRight, SeamSide.TOP);
-			// 2. Right triangle:
-			AddTriangle(ref vertexIndex, topRight, bottomRight, bottomLeft, SeamSide.TOP);
+			// 1st triangle:
+			AddTriangle(ref vertexIndex, bottomLeft, topLeft, topRight, false);
+			// 2nd triangle:
+			AddTriangle(ref vertexIndex, topRight, bottomRight, bottomLeft, false);
 		}
 		else
 		{
-			// Add triangles (as a set of 3 vertices) to the array:
 			// 1. Top triangle:
-			AddTriangle(ref vertexIndex, center, topLeft, topRight, SeamSide.TOP);
+			AddTriangle(ref vertexIndex, center, topLeft, topRight, seamSide == SeamSide.TOP);
 			// 2. Right triangle:
-			AddTriangle(ref vertexIndex, center, topRight, bottomRight, SeamSide.RIGHT);
+			AddTriangle(ref vertexIndex, center, topRight, bottomRight, seamSide == SeamSide.RIGHT);
 			// 3. Bottom triangle:
-			AddTriangle(ref vertexIndex, center, bottomRight, bottomLeft, SeamSide.BOTTOM);
+			AddTriangle(ref vertexIndex, center, bottomRight, bottomLeft, seamSide == SeamSide.BOTTOM);
 			// 4. Left triangle:
-			AddTriangle(ref vertexIndex, center, bottomLeft, topLeft, SeamSide.LEFT);
+			AddTriangle(ref vertexIndex, center, bottomLeft, topLeft, seamSide == SeamSide.LEFT);
 		}
 	}
 
-	void AddTriangle(ref int index, Vector3 center, Vector3 corner1, Vector3 corner2, SeamSide side)
+	void AddTriangle(ref int index, Vector3 center, Vector3 corner1, Vector3 corner2, bool addSeam)
 	{
-		if (side == seamSide)
+		if (addSeam)
 		{
 			Vector3 seamVertex1 = corner1 + (corner2 - corner1) * 0.333333f;
 			Vector3 seamVertex2 = corner1 + (corner2 - corner1) * 0.666666f;

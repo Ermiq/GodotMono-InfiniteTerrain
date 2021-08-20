@@ -24,4 +24,4 @@ environment = ExtResource( 4 )
 [node name="Camera" parent="." instance=ExtResource( 3 )]
 
 [node name="Car" parent="." instance=ExtResource( 5 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.99475, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 21.4463, 0 )

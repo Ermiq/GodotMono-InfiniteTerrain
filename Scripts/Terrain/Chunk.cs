@@ -29,8 +29,6 @@ public class Chunk : Spatial
 	int[] seamQuads;
 	bool addCollision;
 
-	Task task;
-
 	public Chunk(OpenSimplexNoise noise, Material material, Vector2 index, float size, int detail, bool addCollision = false)
 	{
 		this.noise = noise;
@@ -78,10 +76,10 @@ public class Chunk : Spatial
 			for (int x = 0; x < detail; x++)
 			{
 				// Each quad center is shifted by its x/z index.
-				// E.g., the 2nd quad's X coord = meshCenter - meshHalfSize + quadHalfSize + 1 quadFullSize (index x = 1).
-				// The quad which is at index x = 1, index z = 2 has coords:
-				// X = (meshCenter - meshHalfSize + quadHalfSize + 1 quadFullSize) by X axis  
-				// Z = (meshCenter - meshHalfSize + quadHalfSize + 2 quadFullSize) by Z axis
+				// E.g., along X axis the n-th quad's X coord = chunkCenterX - chunkHalfSize + quadHalfSize + (quadFullSize * n).
+				// The quad which is at index x = 1, index z = 3 has coords:
+				// X = chunkCenterX - chunkHalfSize + quadHalfSize + 1*quadFullSize
+				// Z = chunkCenterZ - chunkHalfSize + quadHalfSize + 3*quadFullSize
 				center = new Vector3(
 					(size * sizeModifier * -0.5f + quadHalfSize) + x * (quadHalfSize * 2f),
 					0,
@@ -96,7 +94,7 @@ public class Chunk : Spatial
 	{
 		if (sizeModifier != offsetY)
 		{
-			sizeModifier = offsetY;
+			sizeModifier = offsetY / 300f;
 			InitQuads();
 		}
 		position = new Vector3(index.x * (size * sizeModifier) + offsetX, 0, index.y * (size * sizeModifier) + offsetZ);
@@ -129,26 +127,6 @@ public class Chunk : Spatial
 		// Generate a mesh instance data:
 		arrayMesh = surfaceTool.Commit();
 		surfaceTool.Clear();
-
-		// This causes hick ups, but in a thread it causes crashes... so...
-		if (addCollision)
-		{
-			shape.SetDeferred("data", arrayMesh.GetFaces());
-		}
-	}
-
-	void ReapplyHeights(float offsetX, float offsetZ)
-	{
-		MeshDataTool mdt = new MeshDataTool();
-		mdt.CreateFromSurface(arrayMesh, 0);
-		for (int i = 0; i < mdt.GetVertexCount(); i++)
-		{
-			Vector3 vertex = mdt.GetVertex(i);
-			AddNoise(ref vertex);
-			mdt.SetVertex(i, vertex);
-		}
-		arrayMesh.SurfaceRemove(0);
-		mdt.CommitToSurface(arrayMesh);
 
 		// This causes hick ups, but in a thread it causes crashes... so...
 		if (addCollision)

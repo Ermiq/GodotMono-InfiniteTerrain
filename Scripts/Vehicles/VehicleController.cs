@@ -5,7 +5,7 @@ using System.Collections.Generic;
 public class VehicleController : RigidBody
 {
 	// control variables
-	public float EnginePower = 200.0f;
+	public float EnginePower = 100.0f;
 	public float SteeringAngle = 30.0f;
 	// currently, raycast driver expects this array to exist in the controller script
 	public List<RayCastDriver> RayElements = new List<RayCastDriver>();
@@ -13,6 +13,7 @@ public class VehicleController : RigidBody
 	RayCastDriver frontRightWheel;
 	RayCastDriver frontLeftWheel;
 	float steerValue;
+	float accelValue;
 
 	public override void _Ready()
 	{
@@ -41,13 +42,20 @@ public class VehicleController : RigidBody
 		// 4WD with front wheel steering
 		foreach (RayCastDriver ray in RayElements)
 		{
-			float dir = 0;
-			if (Input.IsActionPressed("ui_up"))
-				dir += 1;
-			if (Input.IsActionPressed("ui_down"))
-				dir -= 1;
+			// if input provided, steer
+			if (Input.IsActionPressed("ui_up") || Input.IsActionPressed("ui_down"))
+			{
+				if (Input.IsActionPressed("ui_up"))
+					accelValue = Mathf.MoveToward(accelValue, 5f, delta);
+				if (Input.IsActionPressed("ui_down"))
+					accelValue = Mathf.MoveToward(accelValue, -1f, delta);
+			}
+			else
+			{
+				accelValue = Mathf.MoveToward(accelValue, 0, delta);
+			}
 			// faster down the slope, slower up the hill
-			dir -= GlobalTransform.basis.z.Dot(Vector3.Up);
+			//dir -= GlobalTransform.basis.z.Dot(Vector3.Up);
 			
 			// if input provided, steer
 			if (Input.IsActionPressed("ui_left") || Input.IsActionPressed("ui_right"))
@@ -64,7 +72,7 @@ public class VehicleController : RigidBody
 			frontLeftWheel.RotationDegrees = new Vector3(frontLeftWheel.RotationDegrees.x, steerValue, frontLeftWheel.RotationDegrees.z);
 			frontRightWheel.RotationDegrees = new Vector3(frontRightWheel.RotationDegrees.x, steerValue, frontRightWheel.RotationDegrees.z);
 
-			ray.ApplyDriveForce(dir * GlobalTransform.basis.z * drivePerRay * delta);
+			ray.ApplyDriveForce(accelValue * GlobalTransform.basis.z * drivePerRay * delta);
 		}
 	}
 }
