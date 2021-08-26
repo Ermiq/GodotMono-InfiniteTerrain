@@ -180,8 +180,8 @@ public class Ring : Spatial
 		{
 			chunk.GenerateQuads(position);
 		}
-		GenerateSurface(); // <- using SurfaceTool
-		//GenerateSurfaceArrays(); // <- manually creating arrays of data
+		//GenerateSurface(); // <- using SurfaceTool
+		GenerateSurfaceArrays(); // <- manually creating arrays of data
 	}
 
 	// Ring shift finalization that might be called in main thread after the heavy stuff is done in parrallel threads.
