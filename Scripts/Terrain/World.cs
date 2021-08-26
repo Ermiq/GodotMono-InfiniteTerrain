@@ -5,34 +5,39 @@ using System.Threading.Tasks;
 
 public class World : Spatial
 {
-	float originalSize = 300.0f;
-	int detail = 50;
-	int ringsAmount = 4;
+	public static Vector3 Up = Vector3.Up;
+	public static Vector3 Right = Vector3.Right;
+	public static Vector3 Forward = Vector3.Forward;
+	public static int heightCoef = 1;
+
+	float originalSize = 100.0f;
+	int detail = 100;
+	int ringsAmount = 3;
 	bool doUpdate = true;
-	
+
 	PackedScene CarScene = ResourceLoader.Load("res://Scenes/Car.tscn") as PackedScene;
 	PackedScene CamScene = ResourceLoader.Load("res://Scenes/Camera.tscn") as PackedScene;
 	Spatial Car;
 	Spatial Cam;
 	RayCast Ray;
-	
+
 	Material material = ResourceLoader.Load("res://Terrain.material") as Material;
 
 	OpenSimplexNoise noise;
-	List<Ring> rings = new List<Ring>();
+	Ring[] rings;
 
+	Vector3 playerPosition => Cam.Translation;
 	Vector3 playerPreviousPosition;
-	float offsetX, offsetY, offsetZ;
 
 	Task[] tasks;
-	
+
 	public override void _Ready()
 	{
 		base._Ready();
 
 		// Enable wireframe mode in game view:
 		VisualServer.SetDebugGenerateWireframes(true);
-		
+
 		// Set viewport to draw wireframe:
 		// GetViewport().DebugDraw = Viewport.DebugDrawEnum.Wireframe;
 
@@ -40,9 +45,10 @@ public class World : Spatial
 		noise.Seed = (int)OS.GetUnixTime();
 		noise.Octaves = 9;
 		noise.Persistence = 0.2f;
-		noise.Period = 10000;
+		noise.Period = 2000;
 		noise.Lacunarity = 4f;
-		
+
+		rings = new Ring[ringsAmount];
 		// Rings start from 1 and up to 'ringsAmount' inclusive.
 		for (int i = 1; i <= ringsAmount; i++)
 		{
@@ -53,16 +59,13 @@ public class World : Spatial
 			// ratio is the progression ratio (3 in our case),
 			// n (Tn) is the ring index (and the size of its chunks) we need to find:
 			float size = originalSize * (float)Mathf.Pow(3, i - 1);
-			
+
 			Ring ring = new Ring(i, noise, material, size, detail, i == 1);
-			
-			rings.Add(ring);
-			foreach(Chunk c in ring.chunks)
-			{
-				AddChild(c);
-			}
+
+			rings[i - 1] = ring;
+			AddChild(ring);
 		}
-		
+
 		Cam = GetParent().GetNode("Camera") as Spatial;
 		Car = GetParent().GetNode("Car") as Spatial;
 
@@ -91,7 +94,7 @@ public class World : Spatial
 			if (Car == null)
 			{
 				Car = CarScene.Instance() as Spatial;
-				Car.Translation = Cam.Translation;
+				Car.Translation = playerPosition;
 				GetParent().AddChild(Car);
 				Ray.AddException(Car);
 			}
@@ -110,22 +113,18 @@ public class World : Spatial
 	{
 		if (!doUpdate)
 			return;
-		
-		Vector3 player_translation = Cam.Translation;
-		Vector3 index;
-		index.y = Mathf.FloorToInt(player_translation.DistanceTo(Ray.GetCollisionPoint()) / originalSize);
-		index.x = Mathf.FloorToInt(player_translation.x / originalSize);
-		index.z = Mathf.FloorToInt(player_translation.z / originalSize);
-		
-		if (playerPreviousPosition != index)
+
+		if (playerPosition.DistanceSquaredTo(playerPreviousPosition) > originalSize * originalSize)
 		{
-			offsetX = index.x * originalSize + (originalSize * 0.5f);
-			offsetY = index.y * originalSize + (originalSize * 0.5f);
-			offsetZ = index.z * originalSize + (originalSize * 0.5f);
-			
-			playerPreviousPosition.x = index.x;
-			playerPreviousPosition.y = index.y;
-			playerPreviousPosition.z = index.z;
+			var spaceState = GetWorld().DirectSpaceState;
+			// use global coordinates, not local to node
+			Godot.Collections.Dictionary result = spaceState.IntersectRay(playerPosition, playerPosition - World.Up * 9999f);
+			if (result.Count > 0)
+			{
+				Vector3 point = (Vector3)result["position"];
+				heightCoef = Mathf.FloorToInt(playerPosition.DistanceTo(point) / originalSize) + 1;
+			}
+			playerPreviousPosition = playerPosition;
 			//UpdateRings();
 			UpdateRingsAsync();
 		}
@@ -136,9 +135,9 @@ public class World : Spatial
 		for (int i = 0; i < ringsAmount; i++)
 		{
 			Ring ring = rings[i];
-			ring.ShiftProcess(offsetX, offsetY, offsetZ);
+			ring.ShiftProcess(new Vector3(playerPosition.x, 0, playerPosition.z));
 		}
-		foreach(Ring ring in rings)
+		foreach (Ring ring in rings)
 		{
 			ring.ShiftApply();
 		}
@@ -148,37 +147,19 @@ public class World : Spatial
 	{
 		if (tasks != null)
 			return;
-		
+
 		tasks = new Task[ringsAmount];
 		for (int i = 0; i < ringsAmount; i++)
 		{
 			Ring ring = rings[i];
-			tasks[i] = Task.Run(() => {
-				ring.ShiftProcess(offsetX, offsetY, offsetZ);
+			tasks[i] = Task.Run(() =>
+			{
+				ring.ShiftProcess(new Vector3(playerPosition.x, 0, playerPosition.z));
 			});
 		}
 		await Task.WhenAll(tasks);
-		/*
-		Another way - separate thread for each chunk.
-		This runs a bit faster, but there is a glitch: very often
-		inner ring chunks fail to translate leaving a black hole.
 		
-		for (int i = 0; i < ringsAmount; i++)
-		{
-			Ring ring = rings[i];
-			tasks = new Task[ring.chunks.Length];
-			for (int j = 0; j < ring.chunks.Length; j++)
-			{
-				Chunk chunk = ring.chunks[j];
-				tasks[j] = Task.Run(() =>
-				{
-					chunk.GenerateSurface(offsetX, offsetY, offsetZ);
-				});
-			}
-			await Task.WhenAll(tasks);
-		}
-		*/
-		foreach(Ring ring in rings)
+		foreach (Ring ring in rings)
 		{
 			ring.ShiftApply();
 		}
