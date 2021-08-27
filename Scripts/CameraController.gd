@@ -19,6 +19,11 @@ var velocity: Vector3
 var initial_rotation: float = rotation.y
 
 func _ready():
+	# Enable wireframe mode in game view:
+	VisualServer.set_debug_generate_wireframes(true)
+	# Set viewport to draw wireframe:
+	#get_viewport().debug_draw = Viewport.DEBUG_DRAW_WIREFRAME
+	
 	cam = $CamV/Cam
 	camV = $CamV
 	switch_car_cam()
@@ -33,6 +38,13 @@ func _process(delta):
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	# ----------------------------------
 
+	if Input.is_action_just_pressed("f1"):
+		var vp = get_viewport()
+		if vp.debug_draw == Viewport.DEBUG_DRAW_WIREFRAME:
+			vp.debug_draw = Viewport.DEBUG_DRAW_DISABLED
+		else:
+			vp.debug_draw = Viewport.DEBUG_DRAW_WIREFRAME
+	
 	if Input.is_action_just_pressed("f3"):
 		switch_car_cam()
 

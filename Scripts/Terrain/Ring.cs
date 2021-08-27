@@ -40,7 +40,7 @@ public class Ring : Spatial
 			staticBody.AddChild(collision);
 		}
 
-		if (index == 1)
+		if (index == 0)
 		{
 			chunks = new Chunk[1] {
 				new Chunk(Vector2.Zero, size * 3, detail, false)
@@ -57,7 +57,7 @@ public class Ring : Spatial
 					if (j == 0 && k == 0)
 						continue;
 
-					Chunk chunk = new Chunk(new Vector2(j, k), size, detail, index > 2);
+					Chunk chunk = new Chunk(new Vector2(j, k), size, detail, index > 1);
 					chunks[count] = chunk;
 					count++;
 				}

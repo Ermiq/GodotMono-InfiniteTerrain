@@ -12,7 +12,7 @@ public class World : Spatial
 
 	float originalSize = 100.0f;
 	int detail = 100;
-	int ringsAmount = 3;
+	int ringsAmount = 4;
 	bool doUpdate = true;
 
 	PackedScene CarScene = ResourceLoader.Load("res://Scenes/Car.tscn") as PackedScene;
@@ -27,19 +27,13 @@ public class World : Spatial
 	Ring[] rings;
 
 	Vector3 playerPosition => Cam.Translation;
-	Vector3 playerPreviousPosition;
+	Vector3 playerRecentPosition;
 
 	Task[] tasks;
 
 	public override void _Ready()
 	{
 		base._Ready();
-
-		// Enable wireframe mode in game view:
-		VisualServer.SetDebugGenerateWireframes(true);
-
-		// Set viewport to draw wireframe:
-		// GetViewport().DebugDraw = Viewport.DebugDrawEnum.Wireframe;
 
 		noise = new OpenSimplexNoise();
 		noise.Seed = (int)OS.GetUnixTime();
@@ -49,8 +43,7 @@ public class World : Spatial
 		noise.Lacunarity = 4f;
 
 		rings = new Ring[ringsAmount];
-		// Rings start from 1 and up to 'ringsAmount' inclusive.
-		for (int i = 1; i <= ringsAmount; i++)
+		for (int i = 0; i < ringsAmount; i++)
 		{
 			// Each ring from the center has size of chunk increased by 3 from the previous ring.
 			// Using the geometric progression formula we find the size of a chunk:
@@ -58,11 +51,11 @@ public class World : Spatial
 			// where T1 is 1st chunk size,
 			// ratio is the progression ratio (3 in our case),
 			// n (Tn) is the ring index (and the size of its chunks) we need to find:
-			float size = originalSize * (float)Mathf.Pow(3, i - 1);
+			float size = originalSize * (float)Mathf.Pow(3, i);
 
-			Ring ring = new Ring(i, noise, material, size, detail, i == 1);
+			Ring ring = new Ring(i, noise, material, size, detail, i == 0);
 
-			rings[i - 1] = ring;
+			rings[i] = ring;
 			AddChild(ring);
 		}
 
@@ -77,12 +70,6 @@ public class World : Spatial
 	public override void _Process(float delta)
 	{
 		base._Process(delta);
-
-		if (Input.IsActionJustPressed("f1"))
-		{
-			var vp = GetViewport();
-			vp.DebugDraw = vp.DebugDraw == Viewport.DebugDrawEnum.Wireframe ? Viewport.DebugDrawEnum.Disabled : Viewport.DebugDrawEnum.Wireframe;
-		}
 
 		if (Input.IsActionJustPressed("f2"))
 		{
@@ -114,7 +101,7 @@ public class World : Spatial
 		if (!doUpdate)
 			return;
 
-		if (playerPosition.DistanceSquaredTo(playerPreviousPosition) > originalSize * originalSize)
+		if (playerPosition.DistanceSquaredTo(playerRecentPosition) > originalSize * originalSize)
 		{
 			var spaceState = GetWorld().DirectSpaceState;
 			// use global coordinates, not local to node
@@ -124,7 +111,6 @@ public class World : Spatial
 				Vector3 point = (Vector3)result["position"];
 				heightCoef = Mathf.FloorToInt(playerPosition.DistanceTo(point) / originalSize) + 1;
 			}
-			playerPreviousPosition = playerPosition;
 			//UpdateRings();
 			UpdateRingsAsync();
 		}
@@ -132,10 +118,12 @@ public class World : Spatial
 
 	void UpdateRings()
 	{
+		playerRecentPosition = playerPosition;
+
 		for (int i = 0; i < ringsAmount; i++)
 		{
 			Ring ring = rings[i];
-			ring.ShiftProcess(new Vector3(playerPosition.x, 0, playerPosition.z));
+			ring.ShiftProcess(new Vector3(playerRecentPosition.x, 0, playerRecentPosition.z));
 		}
 		foreach (Ring ring in rings)
 		{
@@ -148,13 +136,15 @@ public class World : Spatial
 		if (tasks != null)
 			return;
 
+		playerRecentPosition = playerPosition;
+
 		tasks = new Task[ringsAmount];
 		for (int i = 0; i < ringsAmount; i++)
 		{
 			Ring ring = rings[i];
 			tasks[i] = Task.Run(() =>
 			{
-				ring.ShiftProcess(new Vector3(playerPosition.x, 0, playerPosition.z));
+				ring.ShiftProcess(new Vector3(playerRecentPosition.x, 0, playerRecentPosition.z));
 			});
 		}
 		await Task.WhenAll(tasks);
