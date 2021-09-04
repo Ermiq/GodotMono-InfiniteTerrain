@@ -8,28 +8,29 @@ public class World : Spatial
 	public static Vector3 Up = Vector3.Up;
 	public static Vector3 Right = Vector3.Right;
 	public static Vector3 Forward = Vector3.Forward;
-	public static int heightCoef = 1;
 
-	float originalSize = 100.0f;
-	int detail = 100;
-	int ringsAmount = 4;
+	// A reference size for a chunk, representing the minimim size:
+	public static float chunkSize = 100.0f;
+
+	// The amount of quads in a chunk's row/line:
+	public static int detail = 50;
+
+	public static Material material = ResourceLoader.Load("res://Terrain.material") as Material;
+
+	static OpenSimplexNoise noise;
+
+	// The multiplier for the noise's -1..1 results:
+	static float heightCoef = 1000f;
+
 	bool doUpdate = true;
 
 	PackedScene CarScene = ResourceLoader.Load("res://Scenes/Car.tscn") as PackedScene;
 	PackedScene CamScene = ResourceLoader.Load("res://Scenes/Camera.tscn") as PackedScene;
 	Spatial Car;
 	Spatial Cam;
-	RayCast Ray;
 
-	Material material = ResourceLoader.Load("res://Terrain.material") as Material;
-
-	OpenSimplexNoise noise;
-	Ring[] rings;
-
-	Vector3 playerPosition => Cam.Translation;
-	Vector3 playerRecentPosition;
-
-	Task[] tasks;
+	Chunk chunk;
+	float mainChunkSize = 1000000f;
 
 	public override void _Ready()
 	{
@@ -42,29 +43,12 @@ public class World : Spatial
 		noise.Period = 2000;
 		noise.Lacunarity = 4f;
 
-		rings = new Ring[ringsAmount];
-		for (int i = 0; i < ringsAmount; i++)
-		{
-			// Each ring from the center has size of chunk increased by 3 from the previous ring.
-			// Using the geometric progression formula we find the size of a chunk:
-			// Tn = T1 * ratio^(n - 1)
-			// where T1 is 1st chunk size,
-			// ratio is the progression ratio (3 in our case),
-			// n (Tn) is the ring index (and the size of its chunks) we need to find:
-			float size = originalSize * (float)Mathf.Pow(3, i);
-
-			Ring ring = new Ring(i, noise, material, size, detail, i == 0);
-
-			rings[i] = ring;
-			AddChild(ring);
-		}
-
 		Cam = GetParent().GetNode("Camera") as Spatial;
 		Car = GetParent().GetNode("Car") as Spatial;
 
-		Ray = Cam.GetNode<RayCast>("RayCast");
-		if (Car != null)
-			Ray.AddException(Car);
+		// Create a root terrain chunk:
+		chunk = new Chunk(Vector3.Zero, mainChunkSize, true);
+		AddChild(chunk);
 	}
 
 	public override void _Process(float delta)
@@ -81,78 +65,31 @@ public class World : Spatial
 			if (Car == null)
 			{
 				Car = CarScene.Instance() as Spatial;
-				Car.Translation = playerPosition;
+				Car.Translation = Cam.Translation;
 				GetParent().AddChild(Car);
-				Ray.AddException(Car);
 			}
 			else
 			{
 				GetParent().RemoveChild(Car);
-				Ray.RemoveException(Car);
 				Car = null;
 			}
 		}
 
-		GetPlayerPosIndex();
+		UpdateTerrain();
 	}
 
-	void GetPlayerPosIndex()
+	void UpdateTerrain()
 	{
 		if (!doUpdate)
 			return;
 
-		if (playerPosition.DistanceSquaredTo(playerRecentPosition) > originalSize * originalSize)
-		{
-			var spaceState = GetWorld().DirectSpaceState;
-			// use global coordinates, not local to node
-			Godot.Collections.Dictionary result = spaceState.IntersectRay(playerPosition, playerPosition - World.Up * 9999f);
-			if (result.Count > 0)
-			{
-				Vector3 point = (Vector3)result["position"];
-				heightCoef = Mathf.FloorToInt(playerPosition.DistanceTo(point) / originalSize) + 1;
-			}
-			//UpdateRings();
-			UpdateRingsAsync();
-		}
+		chunk.Update(Cam.Translation);
 	}
 
-	void UpdateRings()
+	public static Vector3 EvaluatePosition(Vector3 position)
 	{
-		playerRecentPosition = playerPosition;
-
-		for (int i = 0; i < ringsAmount; i++)
-		{
-			Ring ring = rings[i];
-			ring.ShiftProcess(new Vector3(playerRecentPosition.x, 0, playerRecentPosition.z));
-		}
-		foreach (Ring ring in rings)
-		{
-			ring.ShiftApply();
-		}
-	}
-
-	async void UpdateRingsAsync()
-	{
-		if (tasks != null)
-			return;
-
-		playerRecentPosition = playerPosition;
-
-		tasks = new Task[ringsAmount];
-		for (int i = 0; i < ringsAmount; i++)
-		{
-			Ring ring = rings[i];
-			tasks[i] = Task.Run(() =>
-			{
-				ring.ShiftProcess(new Vector3(playerRecentPosition.x, 0, playerRecentPosition.z));
-			});
-		}
-		await Task.WhenAll(tasks);
-		
-		foreach (Ring ring in rings)
-		{
-			ring.ShiftApply();
-		}
-		tasks = null;
+		float n = noise.GetNoise3dv(position);
+		position.y = heightCoef * n;
+		return position;
 	}
 }
