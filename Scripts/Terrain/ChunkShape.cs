@@ -1,34 +1,32 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 public class ChunkShape : MeshInstance
 {
+	public bool IsUpToDate => isCreated && detail == World.detail;
+
 	Vector3[] vertices;
 	int[] indices;
 	Vector3[] normals;
 	int detail;
+	bool isCreated;
 
 	Godot.Collections.Array mesh_arrays;
 	ArrayMesh arrayMesh;
-	CollisionShape collision;
 	ConcavePolygonShape shape;
 
 	Vector3 center;
 	float size;
 
-	/// <summary>
-	/// This is a visual representation of a chunk. Basically a MeshInstance with terrain vertices generation functions.
-	/// </summary>
-	/// <param name="center"></param>
-	/// <param name="size"></param>
-	public ChunkShape(Vector3 center, float size)
+	Task task;
+
+	public ChunkShape(Vector3 center, float size, bool addCollision)
 	{
 		this.center = center;
 		this.size = size;
-
-		this.detail = World.detail;
 
 		vertices = new Vector3[0];
 		indices = new int[0];
@@ -36,41 +34,60 @@ public class ChunkShape : MeshInstance
 
 		arrayMesh = new ArrayMesh();
 		Mesh = arrayMesh;
+		MaterialOverride = World.material;
 
-		StaticBody staticBody = new StaticBody();
-		AddChild(staticBody);
-		collision = new CollisionShape();
-		shape = new ConcavePolygonShape();
-		collision.Shape = shape;
-		staticBody.AddChild(collision);
+		if (addCollision)
+		{
+			shape = new ConcavePolygonShape();
+			StaticBody staticBody = new StaticBody();
+			AddChild(staticBody);
+			CollisionShape collision = new CollisionShape();
+			staticBody.AddChild(collision);
+			collision.Shape = shape;
+		}
 	}
 
-	public void Create()
+	public async void Create()
 	{
-		if (vertices.Length == 0)
-		{
-			GenerateQuads();
-			CreateSurface();
-			Mesh = arrayMesh;
-			if (size <= World.chunkSize)
-				shape.SetDeferred("data", arrayMesh.GetFaces());
-		}
+		if (task != null && !task.IsCompleted)
+			return;
+
+		if (IsUpToDate)
+			return;
+
+		detail = World.detail;
+
+		task = GenerateAsync();
+		await task;
+
+		isCreated = true;
+	}
+
+	async Task GenerateAsync()
+	{
+		await Task.Run(() => Generate());
 	}
 
 	public void Remove()
 	{
-		vertices = new Vector3[0];
-		indices = new int[0];
-		normals = new Vector3[0];
 		// Remove previous surface from the previous arrayMesh:
 		if (arrayMesh.GetSurfaceCount() != 0)
 			arrayMesh.SurfaceRemove(0);
-		Mesh = arrayMesh;
-		shape.SetDeferred("data", null);
+		isCreated = false;
+	}
+
+	void Generate()
+	{
+		CreateQuads();
+		CreateSurface();
+		if (arrayMesh.GetSurfaceCount() > 1)
+			arrayMesh.SurfaceRemove(0);
+		if (shape != null)
+			shape.SetDeferred("data", arrayMesh.GetFaces());
 	}
 
 	// Chunks will be made of 2 triangle quads
-	void GenerateQuads()
+	void CreateQuads()
 	{
 		// Each quad has 4 corner vertices:
 		int verticesAmount = (detail + 1) * (detail + 1);
@@ -143,9 +160,7 @@ public class ChunkShape : MeshInstance
 			normals[i] = normals[i].Normalized();
 		}
 
-		// Lower skirt vertices to disguise the seam stiches.
-		// Note that we use it after the normals calculations. This way the chunks borders will be almost invisible
-		// due to the skirt normals being calculated as if they were aligned with the rest of the terrain.
+		// Lower skirt vertices to disguise the seam stiches
 		LowerSkirts();
 
 		// Prepare mesh arrays:
@@ -156,21 +171,22 @@ public class ChunkShape : MeshInstance
 		mesh_arrays[8] = indices;
 
 		arrayMesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, mesh_arrays);
-		arrayMesh.SurfaceSetMaterial(0, World.material);
 		mesh_arrays.Clear();
 	}
 
 	void LowerSkirts()
 	{
+		float l = size / (float)detail;
+
 		for (int i = 0; i < (detail + 3) * (detail + 3); i += detail + 3)
 		{
-			vertices[i].y -= 30f;
-			vertices[i + detail + 2].y -= 30f;
+			vertices[i].y -= l;
+			vertices[i + detail + 2].y -= l;
 		}
 		for (int i = 1; i < detail + 2; i++)
 		{
-			vertices[i].y -= 30f;
-			vertices[i + (detail + 3) * (detail + 2)].y -= 30f;
+			vertices[i].y -= l;
+			vertices[i + (detail + 3) * (detail + 2)].y -= l;
 		}
 	}
 }

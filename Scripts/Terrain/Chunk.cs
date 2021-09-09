@@ -4,14 +4,14 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-public class Chunk : Spatial
+public class Chunk : MeshInstance
 {
 	Chunk[] children;
+	bool isRoot;
 	ChunkShape shape;
 
 	Vector3 center, centerE;
 	float size;
-	bool isRoot;
 
 	public Chunk(Vector3 center, float size, bool isRoot = false)
 	{
@@ -19,20 +19,29 @@ public class Chunk : Spatial
 		this.size = size;
 		this.isRoot = isRoot;
 
-		// The centerE is the chunk center vertex with noise applied to it.
-		// We will use it to calculate the distance from the camera to the chunk's actual canter vertex.
-		// The center (without E) stays a center point on flat XZ plane (y is 0).
 		centerE = World.EvaluatePosition(center);
+
 		children = new Chunk[0];
 
-		shape = new ChunkShape(center, size);
+		shape = new ChunkShape(center, size, size <= World.chunkSize);
 		AddChild(shape);
+	}
+
+	public Chunk[] GetAllChildren()
+	{
+		List<Chunk> result = new List<Chunk>();
+		if (children.Length > 0)
+			foreach (Chunk child in children)
+				result.AddRange(child.GetAllChildren());
+		else
+			result.Add(this);
+		return result.ToArray();
 	}
 
 	public void Update(Vector3 viewerPosition)
 	{
 		float distance = centerE.DistanceSquaredTo(viewerPosition);
-		if (distance <= Mathf.Pow(size * 2f, 2) && size > World.chunkSize)
+		if (distance <= Mathf.Pow(size * 3f, 2) && size > World.chunkSize)
 		{
 			Divide(viewerPosition);
 		}
@@ -42,10 +51,8 @@ public class Chunk : Spatial
 		}
 	}
 
-	void Divide(Vector3 viewerPosition)
+	void Divide(Vector3 viewerPositionLocal)
 	{
-		// Divide is called when the distance to the camera is close enough for the chunk to be subdivided
-		// So, create children chunks if there's no children yet.
 		if (children.Length == 0)
 		{
 			children = new Chunk[4];
@@ -65,25 +72,23 @@ public class Chunk : Spatial
 			AddChild(children[3]);
 		}
 
-		// Send the update signal to the children so they also could check the camera distance
-		//and dicide whether they should be divided further or not:
+		bool isAllChildrenUpToDate = true;
 		foreach (Chunk child in children)
 		{
-			child.Update(viewerPosition);
+			child.Update(viewerPositionLocal);
+			if (!child.shape.IsUpToDate) isAllChildrenUpToDate = false;
 		}
-
-		// Remove self shape, because the children now represent the terrain:
-		shape.Remove();
+		if (isAllChildrenUpToDate)
+		{
+			shape.Remove();
+		}
 	}
 
 	void Merge()
 	{
-		// Merge is called when no further subdivision is needed, meaninf that this chunk is the most deep one
-		// and its shape will represent the terrain:
-		shape.Create();
-
-		// Delete any children:
-		if (children.Length > 0)
+		if (!shape.IsUpToDate)
+			shape.Create();
+		else
 		{
 			foreach (Chunk child in children)
 			{
@@ -91,17 +96,5 @@ public class Chunk : Spatial
 			}
 			children = new Chunk[0];
 		}
-	}
-
-	// Not used currently:
-	Chunk[] GetAllChildren()
-	{
-		List<Chunk> result = new List<Chunk>();
-		if (children.Length > 0)
-			foreach (Chunk child in children)
-				result.AddRange(child.GetAllChildren());
-		else
-			result.Add(this);
-		return result.ToArray();
 	}
 }
