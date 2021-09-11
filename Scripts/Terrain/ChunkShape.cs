@@ -78,7 +78,6 @@ public class ChunkShape : MeshInstance
 	{
 		CreateQuads();
 		CreateSurface();
-		CreateSurface();
 		// Make sure the node is still alive, and call finalization in a thread-safe manner:
 		if (IsInstanceValid(this))
 			CallDeferred("ApplyToMesh");
