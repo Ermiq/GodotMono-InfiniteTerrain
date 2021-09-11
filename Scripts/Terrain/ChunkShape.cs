@@ -59,8 +59,6 @@ public class ChunkShape : MeshInstance
 
 		task = GenerateAsync();
 		await task;
-
-		isCreated = true;
 	}
 
 	async Task GenerateAsync()
@@ -80,10 +78,24 @@ public class ChunkShape : MeshInstance
 	{
 		CreateQuads();
 		CreateSurface();
-		if (arrayMesh.GetSurfaceCount() > 1)
+		CreateSurface();
+		// Make sure the node is still alive, and call finalization in a thread-safe manner:
+		if (IsInstanceValid(this))
+			CallDeferred("ApplyToMesh");
+		isCreated = true;
+	}
+
+	// When called as deferred causes hickups due to the expensive
+	// collision shape operation, but it's the only way for now.
+	// Physics related stuff is not thread-safe in Godot.
+	void ApplyToMesh()
+	{
+		if (arrayMesh.GetSurfaceCount() > 0)
 			arrayMesh.SurfaceRemove(0);
+		arrayMesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, mesh_arrays);
 		if (shape != null)
 			shape.SetDeferred("data", arrayMesh.GetFaces());
+		mesh_arrays.Clear();
 	}
 
 	// Chunks will be made of 2 triangle quads
@@ -169,9 +181,6 @@ public class ChunkShape : MeshInstance
 		mesh_arrays[0] = vertices;
 		mesh_arrays[1] = normals;
 		mesh_arrays[8] = indices;
-
-		arrayMesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, mesh_arrays);
-		mesh_arrays.Clear();
 	}
 
 	void LowerSkirts()
