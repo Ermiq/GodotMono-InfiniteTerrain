@@ -6,26 +6,29 @@ using System.Threading.Tasks;
 
 public class ChunkShape : MeshInstance
 {
-	public bool IsUpToDate => isCreated && detail == World.detail;
+	public bool isUpToDate { get { return isCreated && detail == World.detail; } }
+	public bool isCreated { get; private set; }
+	public bool isInProcess { get; private set; }
 
 	Vector3[] vertices;
 	int[] indices;
 	Vector3[] normals;
 	int detail;
-	bool isCreated;
 
 	Godot.Collections.Array mesh_arrays;
 	ArrayMesh arrayMesh;
 	ConcavePolygonShape shape;
 
-	Vector3 center;
+	Basis faceBasis;
+	Vector3 centerC;
 	float size;
 
-	Task task;
+	bool[] neighbours;
 
-	public ChunkShape(Vector3 center, float size, bool addCollision)
+	public ChunkShape(Basis faceBasis, Vector3 centerC, float size)
 	{
-		this.center = center;
+		this.faceBasis = faceBasis;
+		this.centerC = centerC;
 		this.size = size;
 
 		vertices = new Vector3[0];
@@ -36,6 +39,7 @@ public class ChunkShape : MeshInstance
 		Mesh = arrayMesh;
 		MaterialOverride = World.material;
 
+		bool addCollision = size <= World.chunkSize;
 		if (addCollision)
 		{
 			shape = new ConcavePolygonShape();
@@ -47,28 +51,22 @@ public class ChunkShape : MeshInstance
 		}
 	}
 
-	public async void Create()
+	public void Create(bool[] neighbours, Action onReady)
 	{
-		if (task != null && !task.IsCompleted)
-			return;
-
-		if (IsUpToDate)
-			return;
-
-		detail = World.detail;
-
-		task = GenerateAsync();
-		await task;
+		this.neighbours = neighbours;
+		GenerateAsync(onReady);
 	}
 
-	async Task GenerateAsync()
+	async void GenerateAsync(Action onReady)
 	{
+		isInProcess = true;
 		await Task.Run(() => Generate());
+		isInProcess = false;
+		onReady();
 	}
 
 	public void Remove()
 	{
-		// Remove previous surface from the previous arrayMesh:
 		if (arrayMesh.GetSurfaceCount() != 0)
 			arrayMesh.SurfaceRemove(0);
 		isCreated = false;
@@ -76,12 +74,14 @@ public class ChunkShape : MeshInstance
 
 	void Generate()
 	{
+		detail = World.detail;
+
 		CreateQuads();
 		CreateSurface();
+
 		// Make sure the node is still alive, and call finalization in a thread-safe manner:
 		if (IsInstanceValid(this))
 			CallDeferred("ApplyToMesh");
-		isCreated = true;
 	}
 
 	// When called as deferred causes hickups due to the expensive
@@ -89,56 +89,115 @@ public class ChunkShape : MeshInstance
 	// Physics related stuff is not thread-safe in Godot.
 	void ApplyToMesh()
 	{
-		if (arrayMesh.GetSurfaceCount() > 0)
+		while (arrayMesh.GetSurfaceCount() > 0)
 			arrayMesh.SurfaceRemove(0);
 		arrayMesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, mesh_arrays);
 		if (shape != null)
 			shape.SetDeferred("data", arrayMesh.GetFaces());
 		mesh_arrays.Clear();
+
+		isCreated = true;
 	}
 
-	// Chunks will be made of 2 triangle quads
+	// Chunks will be made of 4 triangle quads
 	void CreateQuads()
 	{
-		// Each quad has 4 corner vertices:
-		int verticesAmount = (detail + 1) * (detail + 1);
-		// Each quad consists of 2 triangles
-		int indicesAmount = detail * detail * 2 * 3;
+		// Each quad has 4 corner vertices + center vertex:
+		int verticesAmount = (detail + 1) * (detail + 1) + detail * detail;
+		// Each quad consists of 4 triangles
+		int indicesAmount = detail * detail * 4 * 3;
+
 		/* Edge quads will have 2 additional vertices and 2 additional triangles,
 		so, we need to increase the arrays sizes. */
-		verticesAmount += (detail * detail) * 2;
-		indicesAmount += (detail * detail) * 2 * 3;
+		int sidesToStitch = 0;
+		for (int i = 0; i < 4; i++)
+			if (neighbours[i])
+				sidesToStitch++;
+		verticesAmount += detail * 2 * sidesToStitch;
+		indicesAmount += detail * 2 * 3 * sidesToStitch;
 
 		vertices = new Vector3[verticesAmount];
 		indices = new int[indicesAmount];
 		normals = new Vector3[verticesAmount];
 
-		float sizeS = size * 2f + size * 2f / detail * 2f;
-		int detailS = detail + 3;
+		float quadHalfSize = size / (float)detail * 0.5f;
+
+		// For additional 'skirts' along the seams between 2 chunks of different detail levels (sizes).
+		// Each quad along the edge will get 2 additional vertices, and their data will be stored
+		// at the end of vertices and indices arrays (after all the 'normal' vertices) starting from the offsets:
+		int vOffset = (detail + 1) * (detail + 1) + detail * detail;
+		int iOffset = detail * detail * 4 * 3;
 
 		int vInd = 0, iInd = 0;
-		for (int z = 0; z < detailS; z++)
+		for (int z = 0; z < detail + 1; z++)
 		{
-			for (int x = 0; x < detailS; x++)
+			for (int x = 0; x < detail + 1; x++)
 			{
-				Vector2 percent = new Vector2(x, z) / (detailS - 1);
-				vertices[vInd] = center
-					+ (percent.x - 0.5f) * Vector3.Right * sizeS
-					- (percent.y - 0.5f) * Vector3.Forward * sizeS;
+				Vector2 percent = new Vector2(x, z) / (float)detail;
+				// Top left vertex:
+				vertices[vInd] = centerC
+					+ (percent.x - 0.5f) * faceBasis.x * size
+					+ (percent.y - 0.5f) * faceBasis.z * size;
 
-				if (x < detailS - 1 && z < detailS - 1)
+				if (x < detail && z < detail)
 				{
-					indices[iInd] = vInd;
-					indices[iInd + 1] = vInd + detailS + 1;
-					indices[iInd + 2] = vInd + detailS;
-					indices[iInd + 3] = vInd;
-					indices[iInd + 4] = vInd + 1;
-					indices[iInd + 5] = vInd + detailS + 1;
-					iInd += 6;
+					// Center vertex:
+					vertices[vInd + detail + 1] = vertices[vInd] + faceBasis.x * quadHalfSize + faceBasis.z * quadHalfSize;
 				}
-				vInd++;
+
+				if (x > 0 && z > 0)
+				{
+					// At this stage all the vertices to the left and to up from current XZ position are created.
+					// So, lets index them:
+					indices[iInd] = vInd - (detail + 1) * 2;        // 0	0     1     2
+					indices[iInd + 1] = vInd - (detail * 2 + 1);    // 1       3     4
+					indices[iInd + 2] = vInd - (detail + 1);        // 3    5     6     7
+
+					indices[iInd + 3] = vInd - (detail * 2 + 1);    // 1
+					indices[iInd + 4] = vInd;                       // 6
+					indices[iInd + 5] = vInd - (detail + 1);        // 3
+
+					indices[iInd + 6] = vInd;                       // 6
+					indices[iInd + 7] = vInd - 1;                   // 5
+					indices[iInd + 8] = vInd - (detail + 1);        // 3
+
+					indices[iInd + 9] = vInd - 1;                   // 5
+					indices[iInd + 10] = vInd - (detail + 1) * 2;   // 0
+					indices[iInd + 11] = vInd - (detail + 1);       // 3
+					iInd += 12;
+
+					if (x == 1 && neighbours[Chunk.W]) // from 0 and 5
+						AddSeamQuad(vInd - 1, vInd - (detail + 1) * 2, vInd - (detail + 1), ref vOffset, ref iOffset, -faceBasis.x);
+					if (x == detail && neighbours[Chunk.E]) // from 2 and 7
+						AddSeamQuad(vInd - (detail * 2 + 1), vInd, vInd - (detail + 1), ref vOffset, ref iOffset, faceBasis.x);
+					if (z == 1 && neighbours[Chunk.S]) // from 0-1, 1-2
+						AddSeamQuad(vInd - (detail + 1) * 2, vInd - (detail * 2 + 1), vInd - (detail + 1), ref vOffset, ref iOffset, faceBasis.z);
+					if (z == detail && neighbours[Chunk.N]) // from 5-6, 6-7
+						AddSeamQuad(vInd, vInd - 1, vInd - (detail + 1), ref vOffset, ref iOffset, -faceBasis.z);
+				}
+				if (x == detail)
+					// Skip central vertex indexes
+					vInd += detail + 1;
+				else vInd++;
 			}
 		}
+	}
+
+	void AddSeamQuad(int corner1, int corner2, int center, ref int vOffset, ref int iOffset, Vector3 toSide)
+	{
+		Vector3 seam = vertices[corner1] + (vertices[corner2] - vertices[corner1]) * 0.5f;
+
+		vertices[vOffset] = seam;
+
+		indices[iOffset] = center;
+		indices[iOffset + 1] = corner1;
+		indices[iOffset + 2] = vOffset;
+		indices[iOffset + 3] = center;
+		indices[iOffset + 4] = vOffset;
+		indices[iOffset + 5] = corner2;
+
+		vOffset += 1;
+		iOffset += 6;
 	}
 
 	void CreateSurface()
@@ -171,30 +230,11 @@ public class ChunkShape : MeshInstance
 			normals[i] = normals[i].Normalized();
 		}
 
-		// Lower skirt vertices to disguise the seam stiches
-		LowerSkirts();
-
 		// Prepare mesh arrays:
 		mesh_arrays = new Godot.Collections.Array();
 		mesh_arrays.Resize(9);
 		mesh_arrays[0] = vertices;
 		mesh_arrays[1] = normals;
 		mesh_arrays[8] = indices;
-	}
-
-	void LowerSkirts()
-	{
-		float l = size / (float)detail;
-
-		for (int i = 0; i < (detail + 3) * (detail + 3); i += detail + 3)
-		{
-			vertices[i].y -= l;
-			vertices[i + detail + 2].y -= l;
-		}
-		for (int i = 1; i < detail + 2; i++)
-		{
-			vertices[i].y -= l;
-			vertices[i + (detail + 3) * (detail + 2)].y -= l;
-		}
 	}
 }

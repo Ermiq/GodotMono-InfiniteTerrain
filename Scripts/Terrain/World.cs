@@ -5,15 +5,11 @@ using System.Threading.Tasks;
 
 public class World : Spatial
 {
-	public static Vector3 Up = Vector3.Up;
-	public static Vector3 Right = Vector3.Right;
-	public static Vector3 Forward = Vector3.Forward;
-
 	// A reference size for a chunk, representing the minimim size:
 	public static float chunkSize = 100.0f;
 
 	// The amount of quads in a chunk's row/line:
-	public static int detail = 50;
+	public static int detail = 10;
 
 	public static Material material = ResourceLoader.Load("res://Terrain.material") as Material;
 
@@ -41,13 +37,13 @@ public class World : Spatial
 		noise.Octaves = 9;
 		noise.Persistence = 0.2f;
 		noise.Period = 2000;
-		noise.Lacunarity = 4f;
+		noise.Lacunarity = 3f;
 
 		Cam = GetParent().GetNode("Camera") as Spatial;
 		Car = GetParent().GetNode("Car") as Spatial;
 
 		// Create a root terrain chunk:
-		chunk = new Chunk(Vector3.Zero, mainChunkSize, true);
+		chunk = new Chunk(null, Transform.basis, Vector3.Zero, mainChunkSize, 0, 1, 0);
 		AddChild(chunk);
 	}
 
@@ -82,8 +78,8 @@ public class World : Spatial
 	{
 		if (!doUpdate)
 			return;
-
-		chunk.Update(Cam.Translation);
+		chunk.Check(Cam.Translation);
+		chunk.Update();
 	}
 
 	public static Vector3 EvaluatePosition(Vector3 position)
