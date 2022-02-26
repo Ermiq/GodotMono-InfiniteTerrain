@@ -8,6 +8,12 @@
 
 [node name="Node" type="Node"]
 
+[node name="Car" parent="." instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 200, 0 )
+
+[node name="Camera" parent="." instance=ExtResource( 3 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 300, 0 )
+
 [node name="World" type="Spatial" parent="."]
 script = ExtResource( 1 )
 
@@ -19,8 +25,3 @@ shadow_enabled = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 4 )
-
-[node name="Camera" parent="." instance=ExtResource( 3 )]
-
-[node name="Car" parent="." instance=ExtResource( 5 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 21.4463, 0 )

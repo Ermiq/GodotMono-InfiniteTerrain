@@ -12,5 +12,4 @@ transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 2, -
 far = 100000.0
 
 [node name="RayCast" type="RayCast" parent="."]
-enabled = true
 cast_to = Vector3( 0, -99999, 0 )

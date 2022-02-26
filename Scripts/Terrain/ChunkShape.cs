@@ -1,19 +1,24 @@
 using Godot;
 using System;
-using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 
 public class ChunkShape : MeshInstance
 {
-	public bool isUpToDate { get { return isCreated && detail == World.detail; } }
 	public bool isCreated { get; private set; }
 	public bool isInProcess { get; private set; }
+	public Vector3 centerA { get; private set; }
 
 	Vector3[] vertices;
-	int[] indices;
 	Vector3[] normals;
+	int[] indices;
 	int detail;
+
+	// For additional 'skirts' along the seams between 2 chunks of different detail levels (sizes)
+	// each quad along the edge will be expaneded with 2 additional triangles, and their data will be stored
+	// in vertices/indices arrays after all the 'main' vertices/indices starting from the 'offset' indexes:
+	int mainVerticesAmount;
+	int vOffset;
+	int iOffset;
 
 	Godot.Collections.Array mesh_arrays;
 	ArrayMesh arrayMesh;
@@ -22,24 +27,20 @@ public class ChunkShape : MeshInstance
 	Basis faceBasis;
 	Vector3 centerC;
 	float size;
+	TerrainSettings settings;
 
-	bool[] neighbours;
-
-	public ChunkShape(Basis faceBasis, Vector3 centerC, float size)
+	public ChunkShape(Basis faceBasis, Vector3 centerC, float size, TerrainSettings settings)
 	{
 		this.faceBasis = faceBasis;
 		this.centerC = centerC;
 		this.size = size;
-
-		vertices = new Vector3[0];
-		indices = new int[0];
-		normals = new Vector3[0];
+		this.settings = settings;
 
 		arrayMesh = new ArrayMesh();
 		Mesh = arrayMesh;
-		MaterialOverride = World.material;
+		MaterialOverride = settings.material;
 
-		bool addCollision = size <= World.chunkSize;
+		bool addCollision = size <= settings.chunkSize;
 		if (addCollision)
 		{
 			shape = new ConcavePolygonShape();
@@ -51,9 +52,8 @@ public class ChunkShape : MeshInstance
 		}
 	}
 
-	public void Create(bool[] neighbours, Action onReady)
+	public void Create(Action onReady)
 	{
-		this.neighbours = neighbours;
 		GenerateAsync(onReady);
 	}
 
@@ -74,7 +74,7 @@ public class ChunkShape : MeshInstance
 
 	void Generate()
 	{
-		detail = World.detail;
+		detail = settings.detail;
 
 		CreateQuads();
 		CreateSurface();
@@ -99,7 +99,6 @@ public class ChunkShape : MeshInstance
 		isCreated = true;
 	}
 
-	// Chunks will be made of 4 triangle quads
 	void CreateQuads()
 	{
 		// Each quad has 4 corner vertices + center vertex:
@@ -107,106 +106,105 @@ public class ChunkShape : MeshInstance
 		// Each quad consists of 4 triangles
 		int indicesAmount = detail * detail * 4 * 3;
 
-		/* Edge quads will have 2 additional vertices and 2 additional triangles,
-		so, we need to increase the arrays sizes. */
-		int sidesToStitch = 0;
-		for (int i = 0; i < 4; i++)
-			if (neighbours[i])
-				sidesToStitch++;
-		verticesAmount += detail * 2 * sidesToStitch;
-		indicesAmount += detail * 2 * 3 * sidesToStitch;
+		// Store the main vertices amount for averaged center calculations later:
+		mainVerticesAmount = verticesAmount;
+		// and setup the index from which the skirt vertices/indices will be placed in the surface data arrays:
+		vOffset = verticesAmount;
+		iOffset = indicesAmount;
+		// Edge quads will be expanded with 2 additional vertices and 2 additional triangles,
+		// 'skirt' quads, so, we need to increase the arrays sizes:
+		verticesAmount += (detail * detail) * 2;
+		indicesAmount += (detail * detail) * 2 * 3;
 
 		vertices = new Vector3[verticesAmount];
-		indices = new int[indicesAmount];
 		normals = new Vector3[verticesAmount];
+		indices = new int[indicesAmount];
 
-		float quadHalfSize = size / (float)detail * 0.5f;
-
-		// For additional 'skirts' along the seams between 2 chunks of different detail levels (sizes).
-		// Each quad along the edge will get 2 additional vertices, and their data will be stored
-		// at the end of vertices and indices arrays (after all the 'normal' vertices) starting from the offsets:
-		int vOffset = (detail + 1) * (detail + 1) + detail * detail;
-		int iOffset = detail * detail * 4 * 3;
+		float quadHalfSize = size / detail * 0.5f;
 
 		int vInd = 0, iInd = 0;
-		for (int z = 0; z < detail + 1; z++)
+		for (int y = 0; y < detail + 1; y++)
 		{
 			for (int x = 0; x < detail + 1; x++)
 			{
-				Vector2 percent = new Vector2(x, z) / (float)detail;
+				Vector2 percent = new Vector2(x, y) / detail;
 				// Top left vertex:
-				vertices[vInd] = centerC
+				vertices[vInd] = Vector3.Zero
 					+ (percent.x - 0.5f) * faceBasis.x * size
 					+ (percent.y - 0.5f) * faceBasis.z * size;
 
-				if (x < detail && z < detail)
+				if (x < detail && y < detail)
 				{
 					// Center vertex:
 					vertices[vInd + detail + 1] = vertices[vInd] + faceBasis.x * quadHalfSize + faceBasis.z * quadHalfSize;
+
+					// Index vertices (first indexation will be at vertex 0):
+					indices[iInd] = vInd;                           // 0    0     1     2
+					indices[iInd + 1] = vInd + 1;                   // 1       3     4
+					indices[iInd + 2] = vInd + detail + 1;          // 3    5     6     7
+
+					indices[iInd + 3] = vInd + 1;                   // 1
+					indices[iInd + 4] = vInd + (detail + 1) * 2;    // 6
+					indices[iInd + 5] = vInd + detail + 1;          // 3
+
+					indices[iInd + 6] = vInd + (detail + 1) * 2;    // 6
+					indices[iInd + 7] = vInd + (detail * 2) + 1;    // 5
+					indices[iInd + 8] = vInd + detail + 1;          // 3
+
+					indices[iInd + 9] = vInd + (detail * 2) + 1;    // 5
+					indices[iInd + 10] = vInd;                      // 0
+					indices[iInd + 11] = vInd + detail + 1;         // 3
+					iInd += 12;
 				}
 
-				if (x > 0 && z > 0)
+				if (x > 0 && y > 0)
 				{
+					// This condition will begin to be met from vertex 6.
 					// At this stage all the vertices to the left and to up from current XZ position are created.
-					// So, lets index them:
-					indices[iInd] = vInd - (detail + 1) * 2;        // 0	0     1     2
-					indices[iInd + 1] = vInd - (detail * 2 + 1);    // 1       3     4
-					indices[iInd + 2] = vInd - (detail + 1);        // 3    5     6     7
-
-					indices[iInd + 3] = vInd - (detail * 2 + 1);    // 1
-					indices[iInd + 4] = vInd;                       // 6
-					indices[iInd + 5] = vInd - (detail + 1);        // 3
-
-					indices[iInd + 6] = vInd;                       // 6
-					indices[iInd + 7] = vInd - 1;                   // 5
-					indices[iInd + 8] = vInd - (detail + 1);        // 3
-
-					indices[iInd + 9] = vInd - 1;                   // 5
-					indices[iInd + 10] = vInd - (detail + 1) * 2;   // 0
-					indices[iInd + 11] = vInd - (detail + 1);       // 3
-					iInd += 12;
-
-					if (x == 1 && neighbours[Chunk.W]) // from 0 and 5
-						AddSeamQuad(vInd - 1, vInd - (detail + 1) * 2, vInd - (detail + 1), ref vOffset, ref iOffset, -faceBasis.x);
-					if (x == detail && neighbours[Chunk.E]) // from 2 and 7
-						AddSeamQuad(vInd - (detail * 2 + 1), vInd, vInd - (detail + 1), ref vOffset, ref iOffset, faceBasis.x);
-					if (z == 1 && neighbours[Chunk.S]) // from 0-1, 1-2
-						AddSeamQuad(vInd - (detail + 1) * 2, vInd - (detail * 2 + 1), vInd - (detail + 1), ref vOffset, ref iOffset, faceBasis.z);
-					if (z == detail && neighbours[Chunk.N]) // from 5-6, 6-7
-						AddSeamQuad(vInd, vInd - 1, vInd - (detail + 1), ref vOffset, ref iOffset, -faceBasis.z);
+					// So, let's calculate the skirts vertex positions if we're on the edge:
+					if (x == 1) // to the right from 0 and 5
+						AddSkirtQuad(vInd - 1, vInd - (detail + 1) * 2, -faceBasis.x);
+					if (x == detail) // to he left from 2 and 7
+						AddSkirtQuad(vInd - (detail * 2 + 1), vInd, faceBasis.x);
+					if (y == 1) // up from 0-1, 1-2
+						AddSkirtQuad(vInd - (detail + 1) * 2, vInd - (detail * 2 + 1), -faceBasis.z);
+					if (y == detail) // down from 5-6, 6-7
+						AddSkirtQuad(vInd, vInd - 1, faceBasis.z);
 				}
 				if (x == detail)
-					// Skip central vertex indexes
+					// Skip central vertex line and jump to the next quad line vertex index:
 					vInd += detail + 1;
 				else vInd++;
 			}
 		}
 	}
 
-	void AddSeamQuad(int corner1, int corner2, int center, ref int vOffset, ref int iOffset, Vector3 toSide)
+	void AddSkirtQuad(int corner1, int corner2, Vector3 toSide)
 	{
-		Vector3 seam = vertices[corner1] + (vertices[corner2] - vertices[corner1]) * 0.5f;
+		float quadSize = size / (float)detail;
+		Vector3 seam1 = vertices[corner1] + toSide * quadSize;
+		Vector3 seam2 = vertices[corner2] + toSide * quadSize;
 
-		vertices[vOffset] = seam;
+		vertices[vOffset] = seam1;
+		vertices[vOffset + 1] = seam2;
 
-		indices[iOffset] = center;
-		indices[iOffset + 1] = corner1;
-		indices[iOffset + 2] = vOffset;
-		indices[iOffset + 3] = center;
-		indices[iOffset + 4] = vOffset;
-		indices[iOffset + 5] = corner2;
+		indices[iOffset] = corner1;
+		indices[iOffset + 1] = vOffset;
+		indices[iOffset + 2] = vOffset + 1;
+		indices[iOffset + 3] = vOffset + 1;
+		indices[iOffset + 4] = corner2;
+		indices[iOffset + 5] = corner1;
 
-		vOffset += 1;
+		vOffset += 2;
 		iOffset += 6;
 	}
 
 	void CreateSurface()
 	{
-		// Apply noise:
+		// Apply noise to vertices and calculate the averaged center vertex:
 		for (int v = 0; v < vertices.Length; v++)
 		{
-			Vector3 vertex = vertices[v];
-			vertex = World.EvaluatePosition(vertex);
+			Vector3 vertex = PrepareVertex(v);
 			vertices[v] = vertex;
 		}
 
@@ -230,11 +228,45 @@ public class ChunkShape : MeshInstance
 			normals[i] = normals[i].Normalized();
 		}
 
+		// Lower skirt vertices to disguise the seams
+		LowerSkirts();
+
+		FinalizeGeneration();
+	}
+
+	Vector3 PrepareVertex(int v)
+	{
+		Vector3 vertex = vertices[v] + faceBasis.y * settings.EvaluatePositionFlat(vertices[v] + centerC);
+
+		// Add to the averaged center:
+		if (v < mainVerticesAmount)
+			centerA += vertex;
+
+		return vertex;
+	}
+
+	void LowerSkirts()
+	{
+		float l = size / (float)detail;
+
+		for (int v = mainVerticesAmount; v < vertices.Length; v++)
+		{
+			Vector3 vertex = vertices[v];
+			vertex -= faceBasis.y * l;
+			vertices[v] = vertex;
+		}
+	}
+
+	void FinalizeGeneration()
+	{
 		// Prepare mesh arrays:
 		mesh_arrays = new Godot.Collections.Array();
 		mesh_arrays.Resize(9);
 		mesh_arrays[0] = vertices;
 		mesh_arrays[1] = normals;
 		mesh_arrays[8] = indices;
+
+		// Average the centerA:
+		centerA /= mainVerticesAmount;
 	}
 }

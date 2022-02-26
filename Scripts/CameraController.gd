@@ -108,8 +108,11 @@ func _input(event):
 			print("Move speed: " + str(move_speed))
 
 func switch_car_cam():
-	car = get_parent().get_node_or_null("Car")
-	if car != null:
-		cam.translation = camDefaultOffset
-	else:
+	if (car != null):
+		car = null
 		cam.translation = Vector3.ZERO
+	else:
+		car = get_parent().get_node_or_null("Car")
+		car.translation = translation
+		car.linear_velocity = Vector3.ZERO
+		cam.translation = camDefaultOffset
