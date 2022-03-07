@@ -232,7 +232,6 @@ public class ChunkShape : MeshInstance
 		{
 			// We use only the 'main' vertices, the additional skirt triangles don't need the collision.
 			int mainIndicesAmount = indices.Length - (detail * detail) * 2 * 3;
-
 			Vector3[] collisionFaces = new Vector3[mainIndicesAmount];
 			for (int i = 0; i < mainIndicesAmount; i++)
 				collisionFaces[i] = vertices[indices[i]];
