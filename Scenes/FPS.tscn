@@ -1,6 +1,15 @@
 [gd_scene load_steps=2 format=2]
 
-[ext_resource path="res://Scripts/FPS.gd" type="Script" id=1]
+[sub_resource type="GDScript" id=1]
+script/source = "extends Label
+
+func _ready():
+	pass # Replace with function body.
+
+
+func _process(delta):
+	text = str(Engine.get_frames_per_second())
+"
 
 [node name="Container" type="Container"]
 __meta__ = {
@@ -34,7 +43,7 @@ margin_left = 35.0
 margin_top = 123.0
 text = "fps"
 uppercase = true
-script = ExtResource( 1 )
+script = SubResource( 1 )
 __meta__ = {
 "_edit_use_anchors_": false
 }

@@ -15,11 +15,20 @@ public class World : Spatial
 	{
 		base._Ready();
 
+		FloatingOrigin.Event_OriginShift += OnOriginShift;
+
 		Cam = GetParent().GetNode("Camera") as Spatial;
 
-		settings = new TerrainSettings();
+		settings = new TerrainSettings(0);
 
-		rootChunk = new Chunk(null, Transform.basis.Orthonormalized(), Vector3.Zero, settings.rootChunkSize, settings, 0);
+		// Create a transform for the root chunk orientation reference:
+		Transform tr = Transform;
+		tr.basis.x = Vector3.Right;
+		tr.basis.y = Vector3.Up;
+		tr.basis.z = -Vector3.Forward;
+		tr.basis = tr.basis.Orthonormalized();
+
+		rootChunk = new Chunk(null, tr.basis, tr.basis.y * settings.altitudeBase, settings.rootChunkSize, settings, 0);
 		AddChild(rootChunk);
 	}
 
@@ -40,7 +49,11 @@ public class World : Spatial
 		if (!doUpdate)
 			return;
 
-		rootChunk.Check(Cam.GlobalTransform.origin);
-		rootChunk.Update();
+		rootChunk.Update(ToLocal(Cam.GlobalTransform.origin));
+	}
+
+	void OnOriginShift(Vector3 offset)
+	{
+		Translation -= offset;
 	}
 }

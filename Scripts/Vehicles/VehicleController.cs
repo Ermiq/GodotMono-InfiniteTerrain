@@ -19,6 +19,8 @@ public class VehicleController : RigidBody
 	{
 		base._Ready();
 
+		FloatingOrigin.Event_OriginShift += OnOriginShift;
+
 		drivePerRay = EnginePower;
 
 		// setup front right and front left wheels
@@ -56,7 +58,7 @@ public class VehicleController : RigidBody
 			}
 			// faster down the slope, slower up the hill
 			//dir -= GlobalTransform.basis.z.Dot(Vector3.Up);
-			
+
 			// if input provided, steer
 			if (Input.IsActionPressed("ui_left") || Input.IsActionPressed("ui_right"))
 			{
@@ -74,5 +76,10 @@ public class VehicleController : RigidBody
 
 			ray.ApplyDriveForce(accelValue * GlobalTransform.basis.z * drivePerRay * delta);
 		}
+	}
+
+	void OnOriginShift(Vector3 offset)
+	{
+		Translation -= offset;
 	}
 }

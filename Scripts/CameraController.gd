@@ -113,6 +113,8 @@ func switch_car_cam():
 		cam.translation = Vector3.ZERO
 	else:
 		car = get_parent().get_node_or_null("Car")
+		car.linear_velocity = Vector3.ZERO
+		car.transform = transform
 		car.translation = translation
 		car.linear_velocity = Vector3.ZERO
 		cam.translation = camDefaultOffset

@@ -5,7 +5,6 @@ using System.Collections.Generic;
 public static class TerrainNoise
 {
 	static OpenSimplexNoise noise = new OpenSimplexNoise();
-	static float noiseRoughness = 1f;
 
 	static TerrainNoise()
 	{
@@ -15,9 +14,10 @@ public static class TerrainNoise
 		noise.Lacunarity = 2f;
 	}
 
-	public static float Basic(Vector3 position)
+	public static float Basic(Vector3 position, ulong seed)
 	{
-		float n = noise.GetNoise3dv(position * noiseRoughness);
+		noise.Seed = (int)seed;
+		float n = noise.GetNoise3dv(position);
 		return n * 0.5f + 0.5f;
 	}
 }
