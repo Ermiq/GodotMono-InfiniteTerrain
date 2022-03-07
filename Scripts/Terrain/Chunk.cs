@@ -30,9 +30,9 @@ public class Chunk : MeshInstance
 		// The shape mesh creator is a child of the chunk.
 		shape = new ChunkShape(faceBasis, centerC, size, settings);
 		AddChild(shape);
-		// To prevent the floating precision related distortion we set the shape mesh position to the point on sphere.
-		// So the camera will get the vertices data relative to the chunk position on sphere instead of the position from the planet center.
-		// In this case the offset (from the chunk center) is not too high and fits in the float precision limits.
+		// To prevent the floating precision related distortion we setup the shape mesh position as offset from the world origin.
+		// So the mesh vertices will be positioned relative to this chunk center position instead of the position from the world origin.
+		// The offset from the chunk center is not too high and fits in the float precision limits, therefore no camera render distortion.
 		shape.Translation = centerC;
 
 		children = new Chunk[0];

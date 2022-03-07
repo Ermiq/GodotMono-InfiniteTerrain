@@ -17,6 +17,7 @@ public class ChunkShape : MeshInstance
 	// each quad along the edge will be expaneded with 2 additional triangles, and their data will be stored
 	// in vertices/indices arrays after all the 'main' vertices/indices starting from the 'offset' indexes:
 	int mainVerticesAmount;
+	int mainIndicesAmount;
 	int vOffset;
 	int iOffset;
 
@@ -57,6 +58,13 @@ public class ChunkShape : MeshInstance
 		GenerateAsync(onReady);
 	}
 
+	public void Remove()
+	{
+		if (arrayMesh.GetSurfaceCount() != 0)
+			arrayMesh.SurfaceRemove(0);
+		isCreated = false;
+	}
+
 	async void GenerateAsync(Action onReady)
 	{
 		isInProcess = true;
@@ -65,35 +73,24 @@ public class ChunkShape : MeshInstance
 		onReady();
 	}
 
-	public void Remove()
-	{
-		if (arrayMesh.GetSurfaceCount() != 0)
-			arrayMesh.SurfaceRemove(0);
-		isCreated = false;
-	}
-
 	void Generate()
 	{
 		detail = settings.detail;
 
 		CreateQuads();
 		CreateSurface();
+		FinalizeGeneration();
 
 		// Make sure the node is still alive, and call finalization in a thread-safe manner:
 		if (IsInstanceValid(this))
 			CallDeferred("ApplyToMesh");
 	}
 
-	// When called as deferred causes hickups due to the expensive
-	// collision shape operation, but it's the only way for now.
-	// Physics related stuff is not thread-safe in Godot.
 	void ApplyToMesh()
 	{
 		while (arrayMesh.GetSurfaceCount() > 0)
 			arrayMesh.SurfaceRemove(0);
 		arrayMesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, mesh_arrays);
-		if (shape != null)
-			shape.SetDeferred("data", arrayMesh.GetFaces());
 		mesh_arrays.Clear();
 
 		isCreated = true;
@@ -101,26 +98,20 @@ public class ChunkShape : MeshInstance
 
 	void CreateQuads()
 	{
-		// Each quad has 4 corner vertices + center vertex:
-		int verticesAmount = (detail + 1) * (detail + 1) + detail * detail;
-		// Each quad consists of 4 triangles
-		int indicesAmount = detail * detail * 4 * 3;
+		// Each quad has 4 corner vertices:
+		mainVerticesAmount = (detail + 1) * (detail + 1);
+		// Each quad consists of 2 triangles
+		mainIndicesAmount = detail * detail * 2 * 3;
 
-		// Store the main vertices amount for averaged center calculations later:
-		mainVerticesAmount = verticesAmount;
 		// and setup the index from which the skirt vertices/indices will be placed in the surface data arrays:
-		vOffset = verticesAmount;
-		iOffset = indicesAmount;
+		vOffset = mainVerticesAmount;
+		iOffset = mainIndicesAmount;
+
 		// Edge quads will be expanded with 2 additional vertices and 2 additional triangles,
-		// 'skirt' quads, so, we need to increase the arrays sizes:
-		verticesAmount += (detail * detail) * 2;
-		indicesAmount += (detail * detail) * 2 * 3;
-
-		vertices = new Vector3[verticesAmount];
-		normals = new Vector3[verticesAmount];
-		indices = new int[indicesAmount];
-
-		float quadHalfSize = size / detail * 0.5f;
+		// 'skirt' quads, so the arrays total lengths will be:
+		vertices = new Vector3[mainVerticesAmount + (detail * detail) * 2];
+		indices = new int[mainIndicesAmount + (detail * detail) * 2 * 3];
+		normals = new Vector3[vertices.Length];
 
 		int vInd = 0, iInd = 0;
 		for (int y = 0; y < detail + 1; y++)
@@ -128,53 +119,38 @@ public class ChunkShape : MeshInstance
 			for (int x = 0; x < detail + 1; x++)
 			{
 				Vector2 percent = new Vector2(x, y) / detail;
-				// Top left vertex:
 				vertices[vInd] = Vector3.Zero
 					+ (percent.x - 0.5f) * faceBasis.x * size
 					+ (percent.y - 0.5f) * faceBasis.z * size;
 
 				if (x < detail && y < detail)
 				{
-					// Center vertex:
-					vertices[vInd + detail + 1] = vertices[vInd] + faceBasis.x * quadHalfSize + faceBasis.z * quadHalfSize;
-
 					// Index vertices (first indexation will be at vertex 0):
-					indices[iInd] = vInd;                           // 0    0     1     2
-					indices[iInd + 1] = vInd + 1;                   // 1       3     4
-					indices[iInd + 2] = vInd + detail + 1;          // 3    5     6     7
+					indices[iInd] = vInd;                   // 0    0     1     2
+					indices[iInd + 1] = vInd + 1;           // 1
+					indices[iInd + 2] = vInd + detail + 1;  // 3    3     4     5
 
-					indices[iInd + 3] = vInd + 1;                   // 1
-					indices[iInd + 4] = vInd + (detail + 1) * 2;    // 6
-					indices[iInd + 5] = vInd + detail + 1;          // 3
-
-					indices[iInd + 6] = vInd + (detail + 1) * 2;    // 6
-					indices[iInd + 7] = vInd + (detail * 2) + 1;    // 5
-					indices[iInd + 8] = vInd + detail + 1;          // 3
-
-					indices[iInd + 9] = vInd + (detail * 2) + 1;    // 5
-					indices[iInd + 10] = vInd;                      // 0
-					indices[iInd + 11] = vInd + detail + 1;         // 3
-					iInd += 12;
+					indices[iInd + 3] = vInd + detail + 1;  // 3
+					indices[iInd + 4] = vInd + 1;           // 1
+					indices[iInd + 5] = vInd + detail + 2;  // 4
+					iInd += 6;
 				}
 
 				if (x > 0 && y > 0)
 				{
-					// This condition will begin to be met from vertex 6.
+					// This condition will begin to be met from vertex 4.
 					// At this stage all the vertices to the left and to up from current XZ position are created.
 					// So, let's calculate the skirts vertex positions if we're on the edge:
-					if (x == 1) // to the right from 0 and 5
-						AddSkirtQuad(vInd - 1, vInd - (detail + 1) * 2, -faceBasis.x);
-					if (x == detail) // to he left from 2 and 7
-						AddSkirtQuad(vInd - (detail * 2 + 1), vInd, faceBasis.x);
+					if (x == 1) // to the left from 0 and 3
+						AddSkirtQuad(vInd - 1, vInd - detail - 2, -faceBasis.x);
+					if (x == detail) // to the right from 2 and 5
+						AddSkirtQuad(vInd - detail - 1, vInd, faceBasis.x);
 					if (y == 1) // up from 0-1, 1-2
-						AddSkirtQuad(vInd - (detail + 1) * 2, vInd - (detail * 2 + 1), -faceBasis.z);
-					if (y == detail) // down from 5-6, 6-7
+						AddSkirtQuad(vInd - detail - 2, vInd - detail - 1, -faceBasis.z);
+					if (y == detail) // down from 3-4, 4-5
 						AddSkirtQuad(vInd, vInd - 1, faceBasis.z);
 				}
-				if (x == detail)
-					// Skip central vertex line and jump to the next quad line vertex index:
-					vInd += detail + 1;
-				else vInd++;
+				vInd++;
 			}
 		}
 	}
@@ -204,8 +180,8 @@ public class ChunkShape : MeshInstance
 		// Apply noise to vertices and calculate the averaged center vertex:
 		for (int v = 0; v < vertices.Length; v++)
 		{
-			Vector3 vertex = PrepareVertex(v);
-			vertices[v] = vertex;
+			Vector3 vertex = ProcessVertex(v);
+			vertices[v] = (Vector3)vertex;
 		}
 
 		// Calculate normals:
@@ -228,27 +204,8 @@ public class ChunkShape : MeshInstance
 			normals[i] = normals[i].Normalized();
 		}
 
-		// Lower skirt vertices to disguise the seams
-		LowerSkirts();
-
-		FinalizeGeneration();
-	}
-
-	Vector3 PrepareVertex(int v)
-	{
-		Vector3 vertex = vertices[v] + faceBasis.y * settings.EvaluatePositionFlat(vertices[v] + centerC);
-
-		// Add to the averaged center:
-		if (v < mainVerticesAmount)
-			centerA += vertex;
-
-		return vertex;
-	}
-
-	void LowerSkirts()
-	{
+		// Lower skirt vertices to disguise the seams:
 		float l = size / (float)detail;
-
 		for (int v = mainVerticesAmount; v < vertices.Length; v++)
 		{
 			Vector3 vertex = vertices[v];
@@ -259,14 +216,41 @@ public class ChunkShape : MeshInstance
 
 	void FinalizeGeneration()
 	{
+		//Setup collision shape:
+		if (shape != null)
+		{
+			// We use only the 'main' vertices, the additional skirt triangles don't need the collision.
+			int mainIndicesAmount = indices.Length - (detail * detail) * 2 * 3;
+			
+			Vector3[] collisionFaces = new Vector3[mainIndicesAmount];
+			for (int i = 0; i < mainIndicesAmount; i++)
+				collisionFaces[i] = vertices[indices[i]];
+
+			// When called as deferred causes hickups due to the expensive
+			// collision shape operation, but it's the only way for now.
+			// Physics related stuff is not thread-safe in Godot.
+			shape.SetDeferred("data", collisionFaces);
+		}
+
+		// Average the centerA:
+		centerA /= mainVerticesAmount;
+
 		// Prepare mesh arrays:
 		mesh_arrays = new Godot.Collections.Array();
 		mesh_arrays.Resize(9);
 		mesh_arrays[0] = vertices;
 		mesh_arrays[1] = normals;
 		mesh_arrays[8] = indices;
+	}
 
-		// Average the centerA:
-		centerA /= mainVerticesAmount;
+	Vector3 ProcessVertex(int v)
+	{
+		Vector3 vertex = vertices[v] + faceBasis.y * settings.EvaluatePositionFlat(vertices[v] + centerC);
+
+		// Add to the averaged center:
+		if (v < mainVerticesAmount)
+			centerA += vertex;
+
+		return vertex;
 	}
 }

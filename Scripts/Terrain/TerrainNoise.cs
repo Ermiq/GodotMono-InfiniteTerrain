@@ -6,7 +6,6 @@ public static class TerrainNoise
 {
 	static OpenSimplexNoise noise = new OpenSimplexNoise();
 	static float noiseRoughness = 1f;
-	static bool noiseRidges;
 
 	static TerrainNoise()
 	{
