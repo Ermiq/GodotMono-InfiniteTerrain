@@ -3,16 +3,17 @@ using System.Collections.Generic;
 
 public class Chunk : MeshInstance
 {
+	Chunk parent;
 	Chunk[] children;
 	bool[] childrenReady;
-	ChunkShape shape;
 
-	Chunk parent;
 	Basis faceBasis;
 	Vector3 center;
 	float size;
 	TerrainSettings settings;
 	int index;
+	
+	ChunkShape shape;
 
 	public Chunk(Chunk parent, Basis faceBasis, Vector3 center, float size, TerrainSettings settings, int index)
 	{
@@ -63,8 +64,8 @@ public class Chunk : MeshInstance
 			foreach (Chunk child in children)
 				child.Update(viewerPositionLocal);
 		}
-		else if (!shape.isCreated && !shape.isInProcess)
-			shape.Create(OnReady);
+		else
+			shape.CreateAsync(OnReady);
 	}
 
 	void OnReady()
@@ -88,7 +89,7 @@ public class Chunk : MeshInstance
 		foreach (bool c in childrenReady)
 			if (!c)
 				all = false;
-		if (all && shape.isCreated)
+		if (all)
 			shape.Remove();
 	}
 

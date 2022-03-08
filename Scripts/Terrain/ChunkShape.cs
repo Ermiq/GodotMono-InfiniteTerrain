@@ -4,8 +4,6 @@ using System.Threading.Tasks;
 
 public class ChunkShape : MeshInstance
 {
-	public bool isCreated { get; private set; }
-	public bool isInProcess { get; private set; }
 	public Vector3 centerA { get; private set; }
 
 	Vector3[] vertices;
@@ -21,6 +19,9 @@ public class ChunkShape : MeshInstance
 	int mainIndicesAmount;
 	int vOffset;
 	int iOffset;
+
+	bool isCreated;
+	bool isInProcess;
 
 	Godot.Collections.Array mesh_arrays;
 	ArrayMesh arrayMesh;
@@ -46,7 +47,7 @@ public class ChunkShape : MeshInstance
 		material.Shader = settings.Shader;
 		material.SetShaderParam("tex_flat", settings.tex_flat);
 		material.SetShaderParam("tex_slope", settings.tex_slope);
-		material.SetShaderParam("tex_scale", size / detail * 2f);
+		material.SetShaderParam("tex_scale", detail);
 
 		arrayMesh = new ArrayMesh();
 		Mesh = arrayMesh;
@@ -75,31 +76,35 @@ public class ChunkShape : MeshInstance
 		centerA = center;
 	}
 
-	public void Create(Action onReady)
-	{
-		GenerateAsync(onReady);
-	}
-
 	public void Remove()
 	{
+		if (!isCreated || isInProcess)
+			return;
+
 		if (arrayMesh.GetSurfaceCount() != 0)
 			arrayMesh.SurfaceRemove(0);
 		isCreated = false;
 	}
 
-	async void GenerateAsync(Action onReady)
+	public async void CreateAsync(Action onReady)
 	{
+		if (isCreated || isInProcess)
+			return;
+
 		isInProcess = true;
-		await Task.Run(() => Generate());
+		await Task.Run(() => Create());
 		isInProcess = false;
 		onReady();
 	}
 
-	void Generate()
+	public void Create()
 	{
-		CreateQuads();
-		CreateSurface();
-		FinalizeGeneration();
+		if (isCreated)
+			return;
+
+		GeneratePlane();
+		GenerateSurface();
+		GenerateMesh();
 
 		// To manipulate the arrayMesh surfaces, we need to do it in a thread-safe manner.
 		// Otherwise we'll get errors about surfaces in the arrayMesh:
@@ -107,7 +112,7 @@ public class ChunkShape : MeshInstance
 			CallDeferred("ApplyToMesh");
 	}
 
-	void CreateQuads()
+	void GeneratePlane()
 	{
 		// Each quad has 4 corner vertices:
 		mainVerticesAmount = (detail + 1) * (detail + 1);
@@ -190,7 +195,7 @@ public class ChunkShape : MeshInstance
 		iOffset += 6;
 	}
 
-	void CreateSurface()
+	void GenerateSurface()
 	{
 		// Apply noise to vertices and calculate the averaged center vertex:
 		ProcessVertices();
@@ -225,13 +230,14 @@ public class ChunkShape : MeshInstance
 		}
 	}
 
-	void FinalizeGeneration()
+	void GenerateMesh()
 	{
 		//Setup collision shape:
 		if (shape != null)
 		{
 			// We use only the 'main' vertices, the additional skirt triangles don't need the collision.
 			int mainIndicesAmount = indices.Length - (detail * detail) * 2 * 3;
+
 			Vector3[] collisionFaces = new Vector3[mainIndicesAmount];
 			for (int i = 0; i < mainIndicesAmount; i++)
 				collisionFaces[i] = vertices[indices[i]];
@@ -242,9 +248,6 @@ public class ChunkShape : MeshInstance
 				// Physics related stuff is not thread-safe in Godot.
 				shape.SetDeferred("data", collisionFaces);
 		}
-
-		// Average the centerA:
-		centerA /= mainVerticesAmount;
 
 		// Prepare mesh arrays:
 		mesh_arrays = new Godot.Collections.Array();
@@ -266,6 +269,9 @@ public class ChunkShape : MeshInstance
 
 	void ProcessVertices()
 	{
+		// Set the average center to zero:
+		centerA = Vector3.Zero;
+
 		for (int v = 0; v < vertices.Length; v++)
 		{
 			// Get the vertex with noise (it will return a position relative to the terrain origin):
@@ -281,5 +287,8 @@ public class ChunkShape : MeshInstance
 
 			vertices[v] = vertex;
 		}
+
+		// Get the final average center:
+		centerA /= mainVerticesAmount;
 	}
 }
